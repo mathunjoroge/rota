@@ -1,0 +1,38 @@
+{% extends 'base.html' %}
+
+{% block title %}Members on Leave{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h1 class="mb-4">Members on Leave</h1>
+
+    <table class="table table-bordered">
+        <thead class="table-light">
+            <tr>
+                <th>Member Name</th>
+                <th>Leave Start Date</th>
+                <th>Leave End Date</th>
+                <th>Days Taken</th>
+                <th>Days Remaining</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for leave in leaves %}
+            <tr>
+                <td>{{ leave.member.name }}</td>
+                <td>{{ leave.start_date }}</td>
+                <td>{{ leave.end_date }}</td>
+                <td>{{ leave.days_taken() }}</td>
+                <td>{{ leave.days_remaining() }}</td>
+                <td>
+                    <!-- Edit Leave -->
+                    <a href="{{ url_for('edit_leave', leave_id=leave.id) }}" 
+                       class="btn btn-warning btn-sm">Edit</a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

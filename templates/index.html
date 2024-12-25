@@ -1,0 +1,14 @@
+{% extends 'base.html' %}
+
+{% block title %}Home{% endblock %}
+
+{% block content %}
+<div class="text-center">
+    <h1>Welcome to the Magic Rota</h1>
+    <p class="lead">Manage your team and shifts with ease.</p>
+    <a href="/members" class="btn btn-primary">Manage Members</a>
+    <a href="/shifts" class="btn btn-secondary">Manage Shifts</a>
+     <a href="/on_leave" class="btn btn-info">Members on leave</a>
+    <a href="/generate_rota" class="btn btn-success">View Rota</a>
+</div>
+{% endblock %}

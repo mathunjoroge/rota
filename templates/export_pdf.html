@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Generated Rota</title>
+    <style>
+        body { font-family: Arial, sans-serif; font-size: 12px; }
+        table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        th { background-color: #f4f4f4; }
+        h1 { text-align: center; }
+    </style>
+</head>
+<body>
+    <h1>Generated Rota</h1>
+    <table>
+        <thead>
+            <tr>
+                <th>Week</th>
+                <th>Day-shift (8 AM - 5 PM)</th>
+                <th>Evening shift (5 PM - 8 PM)</th>
+                <th>Night-shift (8 PM - 8 AM)</th>
+                <th>Night Off</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for rota in rotas %}
+                <tr>
+                    <td>{{ rota.week_range }}</td>
+                    <td>{{ rota.shift_8_5 }}</td>
+                    <td>{{ rota.shift_5_8 }}</td>
+                    <td>{{ rota.shift_8_8 }}</td>
+                    <td>{{ rota.night_off }}</td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</body>
+</html>

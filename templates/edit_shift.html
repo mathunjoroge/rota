@@ -1,0 +1,25 @@
+{% extends 'base.html' %}
+
+{% block title %}Edit Shift{% endblock %}
+
+{% block content %}
+<h1>Edit Shift</h1>
+
+<form method="POST" action="/shifts/edit/{{ index }}">
+    <div class="row">
+        <div class="col-md-4">
+            <input type="text" name="shift_name" class="form-control" value="{{ shift.name }}" required>
+        </div>
+        <div class="col-md-3">
+            <input type="time" name="start_time" class="form-control" value="{{ shift.start }}" required>
+        </div>
+        <div class="col-md-3">
+            <input type="time" name="end_time" class="form-control" value="{{ shift.end }}" required>
+        </div>
+        <div class="col-md-2">
+            <button type="submit" class="btn btn-primary w-100">Save Changes</button>
+        </div>
+    </div>
+</form>
+
+{% endblock %}

@@ -1,0 +1,45 @@
+{% extends 'base.html' %}
+
+{% block title %}Manage Shifts{% endblock %}
+
+{% block content %}
+<h1>Manage Shifts</h1>
+
+<form method="POST" action="/shifts" class="mb-4">
+    <div class="row">
+        <div class="col-md-4">
+            <input type="text" name="shift_name" class="form-control" placeholder="Shift Name" required>
+        </div>
+        <div class="col-md-3">
+            <input type="time" name="start_time" class="form-control" required>
+        </div>
+        <div class="col-md-3">
+            <input type="time" name="end_time" class="form-control" required>
+        </div>
+        <div class="col-md-2">
+            <button type="submit" class="btn btn-primary w-100">Add Shift</button>
+        </div>
+    </div>
+</form>
+
+<h2>Shifts</h2>
+<table class="table table-bordered">
+    <thead>
+        <tr>
+            <th>Shift Name</th>
+            <th>Start Time</th>
+            <th>End Time</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for shift in shifts %}
+        <tr>
+            <td>{{ shift.name }}</td>
+            <td>{{ shift.start_time }}</td>
+            <td>{{ shift.end_time }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+{% endblock %}

@@ -1,0 +1,31 @@
+{% extends 'base.html' %}
+
+{% block title %}Generated Rota{% endblock %}
+
+{% block content %}
+<h1>Generated Rota</h1>
+
+<h2>Rota from {{ start_date.strftime('%d-%m-%Y') }} to {{ end_date.strftime('%d-%m-%Y') }}</h2>
+
+<table class="table table-bordered">
+    <thead>
+        <tr>
+            <th>Date</th>
+            <th>5 PM - 8 PM Shift</th>
+            <th>8 PM - 8 AM Shift</th>
+            <th>8 AM - 5 PM Shift</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for rota in rotas %}
+        <tr>
+            <td>{{ rota.date.strftime('%d-%m-%Y') }}</td>
+            <td>{{ rota.shift_5_8 }}</td>
+            <td>{{ rota.shift_8_8 }}</td>
+            <td>{{ rota.shift_8_5 }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+{% endblock %}
