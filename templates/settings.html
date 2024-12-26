@@ -1,0 +1,10 @@
+{% extends 'base.html' %}
+
+{% block title %}Home{% endblock %}
+
+{% block content %}
+<form method="post">
+    <input type="number" name="max_members_on_leave" placeholder="Max Members on Leave" required>
+    <button type="submit">Save Settings</button>
+</form>
+{% endblock %}

@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, Response
+from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, Response
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime, date, timedelta
 import random
@@ -8,6 +8,7 @@ from xhtml2pdf import pisa
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///rota.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app.secret_key = 'your_secret_key'  # Needed for flash messages
 db = SQLAlchemy(app)
 
 class Team(db.Model):
@@ -33,6 +34,8 @@ class Shift(db.Model):
     name = db.Column(db.String(100), nullable=False)
     start_time = db.Column(db.Time, nullable=False)
     end_time = db.Column(db.Time, nullable=False)
+    max_members = db.Column(db.Integer, nullable=False)
+    min_members = db.Column(db.Integer, nullable=False)
 
     def __repr__(self):
         return f"<Shift {self.name}>"
@@ -45,6 +48,7 @@ class Rota(db.Model):
     shift_8_8 = db.Column(db.String(50), nullable=False)  # 8 PM - 8 AM shift member
     night_off = db.Column(db.String(50), nullable=True)  # Night off member
 
+# Ensure that the database tables are created
 with app.app_context():
     db.create_all()
 
@@ -111,7 +115,11 @@ def edit_member(member_id):
         if new_name:
             member.name = new_name
             db.session.commit()
+            if request.is_json:
+                return jsonify(status='success')
             return redirect(url_for('manage_members'))
+    if request.is_json:
+        return jsonify(name=member.name)
     return render_template('edit_member.html', member=member)
 
 @app.route('/delete_member/<int:member_id>', methods=['POST'])
@@ -148,13 +156,36 @@ def shifts():
         shift_name = request.form['shift_name']
         start_time = datetime.strptime(request.form['start_time'], '%H:%M').time()
         end_time = datetime.strptime(request.form['end_time'], '%H:%M').time()
-        new_shift = Shift(name=shift_name, start_time=start_time, end_time=end_time)
+        max_members = int(request.form['max_members'])
+        min_members = int(request.form['min_members'])
+        new_shift = Shift(name=shift_name, start_time=start_time, end_time=end_time, max_members=max_members, min_members=min_members)
         db.session.add(new_shift)
         db.session.commit()
+        flash('Shift added successfully!', 'success')
         return redirect(url_for('shifts'))
 
     shifts = Shift.query.all()
     return render_template('shifts.html', shifts=shifts)
+
+@app.route('/edit_shift/<int:shift_id>', methods=['POST'])
+def edit_shift(shift_id):
+    shift = Shift.query.get_or_404(shift_id)
+    shift.name = request.form['shift_name']
+    shift.start_time = datetime.strptime(request.form['start_time'], '%H:%M').time()
+    shift.end_time = datetime.strptime(request.form['end_time'], '%H:%M').time()
+    shift.max_members = int(request.form['max_members'])
+    shift.min_members = int(request.form['min_members'])
+    db.session.commit()
+    flash('Shift updated successfully!', 'success')
+    return redirect(url_for('shifts'))
+
+@app.route('/delete_shift/<int:shift_id>', methods=['POST'])
+def delete_shift(shift_id):
+    shift = Shift.query.get_or_404(shift_id)
+    db.session.delete(shift)
+    db.session.commit()
+    flash('Shift deleted successfully!', 'success')
+    return redirect(url_for('shifts'))
 
 @app.route('/export_pdf')
 def export_pdf():

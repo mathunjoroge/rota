@@ -22,7 +22,7 @@
         <thead class="table-light">
             <tr>
                 <th>Name</th>
-                <th>Actions</th>
+                <th style="width: 60%;">Actions</th>
             </tr>
         </thead>
         <tbody>
@@ -31,8 +31,14 @@
                 <td>{{ member.name }}</td>
                 <td>
                     <!-- Edit Member -->
-                    <a href="{{ url_for('edit_member', member_id=member.id) }}" 
-                       class="btn btn-warning btn-sm me-2">Edit</a>
+                    <button 
+                        class="btn btn-warning btn-sm me-2" 
+                        data-bs-toggle="modal" 
+                        data-bs-target="#editMemberModal" 
+                        data-member-id="{{ member.id }}" 
+                        data-member-name="{{ member.name }}">
+                        Edit
+                    </button>
                     
                     <!-- Delete Member -->
                     <form 
@@ -85,4 +91,67 @@
         </tbody>
     </table>
 </div>
+
+<!-- Edit Member Modal -->
+<div class="modal fade" id="editMemberModal" tabindex="-1" aria-labelledby="editMemberModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="editMemberModalLabel">Edit Member</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="editMemberForm" method="POST">
+                    <input type="hidden" id="edit_member_id" name="member_id">
+                    <div class="mb-3">
+                        <label for="edit_member_name" class="form-label">Name</label>
+                        <input type="text" id="edit_member_name" name="name" class="form-control" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Save Changes</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    var editMemberModal = document.getElementById('editMemberModal');
+    var editMemberForm = document.getElementById('editMemberForm');
+
+    editMemberModal.addEventListener('show.bs.modal', function (event) {
+        var button = event.relatedTarget;
+        var memberId = button.getAttribute('data-member-id');
+        var memberName = button.getAttribute('data-member-name');
+
+        var modalTitle = editMemberModal.querySelector('.modal-title');
+        var memberIdInput = editMemberModal.querySelector('#edit_member_id');
+        var memberNameInput = editMemberModal.querySelector('#edit_member_name');
+
+        modalTitle.textContent = 'Edit Member: ' + memberName;
+        memberIdInput.value = memberId;
+        memberNameInput.value = memberName;
+    });
+
+    editMemberForm.onsubmit = function (event) {
+        event.preventDefault();
+        var memberId = document.getElementById('edit_member_id').value;
+        var formData = new FormData(editMemberForm);
+
+        fetch('/edit_member/' + memberId, {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        }).then(response => response.json()).then(data => {
+            if (data.status === 'success') {
+                location.reload();
+            } else {
+                alert('Error updating member');
+            }
+        });
+    };
+});
+</script>
 {% endblock %}
