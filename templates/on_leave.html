@@ -29,6 +29,12 @@
                     <!-- Edit Leave Button -->
                     <button class="btn btn-warning btn-sm" data-bs-toggle="modal" 
                             data-bs-target="#editLeaveModal{{ leave.id }}">Edit</button>
+
+                    <!-- Delete Leave Form -->
+                    <form action="{{ url_for('delete_leave', leave_id=leave.id) }}" method="POST" style="display:inline-block;">
+                       
+                        <button type="submit" class="btn btn-danger btn-sm">Delete</button>
+                    </form>
                 </td>
             </tr>
 
@@ -42,6 +48,7 @@
                             <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                         </div>
                         <form method="POST" action="{{ url_for('edit_leave', leave_id=leave.id) }}">
+                         
                             <div class="modal-body">
                                 <div class="mb-3">
                                     <label for="start_date_{{ leave.id }}" class="form-label">Leave Start Date</label>
