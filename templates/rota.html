@@ -3,24 +3,31 @@
 {% block title %}Generated Rota{% endblock %}
 
 {% block content %}
-    <div class="container mt-4">
+    <div class="container">
         <h1>Generate Rota</h1>
         
         <!-- Form to generate or delete rota -->
         <form action="{{ url_for('generate_rota') }}" method="POST">
-            <div class="form-group">
-                <label for="start_date">Start Date:</label>
-                <input type="date" class="form-control" name="start_date" required>
-            </div>
-            <div class="form-group">
-                <label for="end_date">End Date:</label>
-                <input type="date" class="form-control" name="end_date" required>
-            </div>
+ <div class="container" style="width: 50%;">
+  <div class="row">
+    <div class="col-md-6">
+      <label for="start_date">Start Date:</label>
+      <input type="date" class="form-control" name="start_date" required>
+    </div>
+    <div class="col-md-6">
+      <label for="end_date">End Date:</label>
+      <input type="date" class="form-control" name="end_date"   required>
+    </div>
+  </div>
+</div>
+<br>
+             <div class="container" style="width: 50%;">
             <button type="submit" name="action" value="generate" class="btn btn-primary">Generate Rota</button>
             <button type="submit" name="action" value="delete" class="btn btn-danger">Delete Rota</button>
         </form>
-
-        <h2 class="mt-4">Generated Rotas</h2>
+</div>
+<div class="container">
+        <h2 class="mt-4 text-white bg-primary p-2">Generated Rotas</h2>
         
         <!-- Rota table -->
         <table class="table table-bordered">
