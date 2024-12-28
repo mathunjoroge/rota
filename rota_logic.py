@@ -25,27 +25,41 @@ def generate_weekly_rota(eligible_members, current_date, last_night_shift_member
     if last_night_shift_member in eligible_members_for_this_week:
         eligible_members_for_this_week.remove(last_night_shift_member)
 
+    # Initialize lists for evening and night shifts with members who haven't done these shifts in order
     remaining_members_evening = exclude_assigned_members([m for m in eligible_members_for_this_week if m.name not in evening_shift_history])
     remaining_members_night = exclude_assigned_members([m for m in eligible_members_for_this_week if m.name not in night_shift_history])
 
+    # If no members are left for evening or night shift, reset to all eligible members
     if not remaining_members_evening:
         remaining_members_evening = exclude_assigned_members(eligible_members_for_this_week)
     if not remaining_members_night:
         remaining_members_night = exclude_assigned_members(eligible_members_for_this_week)
 
-    # Select evening shift member
-    evening_shift_member = random.choice(remaining_members_evening)
-    assigned_members.add(evening_shift_member.name)
-    if evening_shift_member in eligible_members_for_this_week:
-        eligible_members_for_this_week.remove(evening_shift_member)
-    evening_shift_history.add(evening_shift_member.name)
+    # Select evening shift member ensuring all members have done this shift before anyone does it again
+    if remaining_members_evening:
+        evening_shift_member = random.choice(remaining_members_evening)
+        assigned_members.add(evening_shift_member.name)
+        eligible_members_for_this_week = exclude_assigned_members(eligible_members_for_this_week)
+        evening_shift_history.add(evening_shift_member.name)
+    else:
+        return "Error: No members available for evening shift."
 
-    # Select night shift member
-    night_shift_member = random.choice(remaining_members_night)
-    assigned_members.add(night_shift_member.name)
-    if night_shift_member in eligible_members_for_this_week:
-        eligible_members_for_this_week.remove(night_shift_member)
-    night_shift_history.add(night_shift_member.name)
+    # Select night shift member ensuring all members have done this shift before anyone does it again
+    if remaining_members_night:
+        night_shift_member = random.choice(remaining_members_night)
+        assigned_members.add(night_shift_member.name)
+        eligible_members_for_this_week = exclude_assigned_members(eligible_members_for_this_week)
+        night_shift_history.add(night_shift_member.name)
+    else:
+        # Reset night shift history if no one is available
+        print("Warning: Resetting night shift history due to no available members.")
+        night_shift_history.clear()
+        remaining_members_night = exclude_assigned_members(eligible_members_for_this_week)
+        if not remaining_members_night:
+            return "Error: No members available for night shift even after reset."
+        night_shift_member = random.choice(remaining_members_night)
+        assigned_members.add(night_shift_member.name)
+        night_shift_history.add(night_shift_member.name)
 
     # Ensure we have enough members for morning shifts
     morning_shift_members = random.sample(exclude_assigned_members(eligible_members_for_this_week), min(4, len(eligible_members_for_this_week)))
