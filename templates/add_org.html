@@ -1,0 +1,21 @@
+{% extends 'base.html' %}
+
+{% block title %}organization details{% endblock %}
+
+{% block content %}
+    <div class="container mt-5">
+        <h1>Add Organization</h1>
+        <form action="{{ url_for('add_org') }}" method="POST">
+            {{ form.hidden_tag() }}
+            <div class="form-group">
+                <label for="name">Organization Name</label>
+                {{ form.name(class="form-control") }}
+            </div>
+            <div class="form-group">
+                <label for="department">Department</label>
+                {{ form.department(class="form-control") }}
+            </div>
+            <button type="submit" class="btn btn-primary">Add Organization</button>
+        </form>
+    </div>
+{% endblock %}

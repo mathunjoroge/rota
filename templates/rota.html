@@ -3,65 +3,72 @@
 {% block title %}Generated Rota{% endblock %}
 
 {% block content %}
-    <div class="container">
-        <h1>Generate Rota</h1>
-        
-        <!-- Form to generate or delete rota -->
-        <form action="{{ url_for('generate_rota') }}" method="POST">
- <div class="container" style="width: 50%;">
-  <div class="row">
-    <div class="col-md-6">
-      <label for="start_date">Start Date:</label>
-      <input type="date" class="form-control" name="start_date" required>
-    </div>
-    <div class="col-md-6">
-      <label for="end_date">End Date:</label>
-      <input type="date" class="form-control" name="end_date"   required>
-    </div>
-  </div>
-</div>
-
-             
-    <div class="row">
-    <div class="col-md-6">
-            <button type="submit" name="action" value="generate" class="btn btn-primary">Generate Rota</button></form>
+<div class="container">
+    <h1>Generate Rota</h1>
+    
+    <!-- Form to generate or delete rota -->
+    <form action="{{ url_for('generate_rota') }}" method="POST">
+        <div class="container" style="width: 50%;">
+            <div class="row">
+                <div class="col-md-6">
+                    <label for="start_date">Start Date:</label>
+                    <input type="date" class="form-control" name="start_date" required>
+                </div>
+                <div class="col-md-6">
+                    <label for="end_date">End Date:</label>
+                    <input type="date" class="form-control" name="end_date" required>
+                </div>
+            </div>
         </div>
-           <div class="row">
-    <div class="col-md-6"> 
-         <form action="{{ url_for('delete_rota') }}" method="POST">
+        <div class="container" style="width: 49.5%;">
+<div class="row mt-3">
+    <div class="col-md-4">
+        <form action="{{ url_for('generate_rota') }}" method="POST">
+            <button type="submit" name="action" value="generate" class="btn btn-primary">Generate Rota</button>
+        </form>
+    </div>
+    <div class="col-md-4">
+        <form action="{{ url_for('delete_rota') }}" method="POST">
             <button type="submit" class="btn btn-danger">Delete Rota</button>
         </form>
     </div>
 </div>
+</div>
+<div class="container mt-5">
+    <h2 class="text-white bg-primary p-2">Generated Rotas</h2>
 
-<div class="container">
-        <h2 class="mt-4 text-white bg-primary p-2">Generated Rotas</h2>
-        
-        <!-- Rota table -->
-        <table class="table table-bordered">
-            <thead>
-                <tr>
-                    <th>Week</th>
-                    <th>Day-shift (8 AM - 5 PM)</th>
-                    <th>Evening shift (5 PM - 8 PM)</th>
-                    <th>night-shift (8 PM - 8 AM)</th>
-                    <th>Night Off</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for rota in rotas %}
-                    <tr>
-                        <td>{{ rota.week_range }}</td>
-                        <td>{{ rota.shift_8_5 }}</td>
-                        <td>{{ rota.shift_5_8 }}</td>
-                        <td>{{ rota.shift_8_8 }}</td>
-                        <td>{{ rota.night_off }}</td>
-                    </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+    {% if rotas %}
+    <!-- Rota table -->
+    <table class="table table-bordered">
+        <thead>
+            <tr>
+                <th>Week</th>
+                <th>Day-shift (8 AM - 5 PM)</th>
+                <th>Evening shift (5 PM - 8 PM)</th>
+                <th>Night-shift (8 PM - 8 AM)</th>
+                <th>Night Off</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for rota in rotas %}
+            <tr>
+                <td>{{ rota.week_range }}</td>
+                <td>{{ rota.shift_8_5 }}</td>
+                <td>{{ rota.shift_5_8 }}</td>
+                <td>{{ rota.shift_8_8 }}</td>
+                <td>{{ rota.night_off }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    <!-- Export to PDF button -->
+    <a href="{{ url_for('export_pdf') }}" class="btn btn-secondary mt-2">Export to PDF</a>
+    {% else %}
+    <div class="alert alert-info" role="alert">
+        No rota available yet.
     </div>
-<!-- Add this button in the Generated Rotas section -->
-<a href="{{ url_for('export_pdf') }}" class="btn btn-secondary mt-2">Export to PDF</a>
+    {% endif %}
+</div>
+
 
 {% endblock %}

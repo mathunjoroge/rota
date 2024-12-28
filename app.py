@@ -1,66 +1,68 @@
 from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, Response
 from flask_sqlalchemy import SQLAlchemy
-
+from flask_wtf import FlaskForm
+from wtforms import StringField, SubmitField
+from wtforms.validators import DataRequired
 from datetime import datetime, date, timedelta
-import random
 from io import BytesIO
 from xhtml2pdf import pisa
+
+# Import models and rota logic
+from models.models import db, OrgDetails, Team, Shift, Rota
+from rota_logic import generate_weekly_rota
+from leave_logic import save_leave_logic, get_leaves_on_date, delete_leave_logic, edit_leave_logic
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///rota.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.secret_key = 'your_secret_key'
 
-db = SQLAlchemy(app)
-
-class Team(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(50), nullable=False)
-
-
-
-class Leave(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    member_id = db.Column(db.Integer, db.ForeignKey('team.id'), nullable=False)
-    start_date = db.Column(db.Date, nullable=False)
-    end_date = db.Column(db.Date, nullable=False)
-    member = db.relationship('Team', backref=db.backref('leaves', cascade="all, delete"))
-
-    def days_taken(self):
-        """
-        Calculates the number of days taken for the leave, including both start and end dates.
-        """
-        return (self.end_date - self.start_date).days + 1
-
-    def days_remaining(self):
-        """
-        Calculates the number of days remaining for the leave. 
-        If the leave has ended, it returns 0.
-        """
-        current_date = date.today()
-        return max(0, (self.end_date - current_date).days)
-    
-class Shift(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(100), nullable=False)
-    start_time = db.Column(db.Time, nullable=False)
-    end_time = db.Column(db.Time, nullable=False)
-    max_members = db.Column(db.Integer, nullable=False)
-    min_members = db.Column(db.Integer, nullable=False)
-
-    def __repr__(self):
-        return f"<Shift {self.name}>"
-
-class Rota(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    week_range = db.Column(db.String(100), nullable=False)
-    shift_8_5 = db.Column(db.String(100), nullable=False)  # 8 AM - 5 PM shift members
-    shift_5_8 = db.Column(db.String(50), nullable=False)  # 5 PM - 8 PM shift member
-    shift_8_8 = db.Column(db.String(50), nullable=False)  # 8 PM - 8 AM shift member
-    night_off = db.Column(db.String(50), nullable=True)  # Night off member
+db.init_app(app)
 
 with app.app_context():
     db.create_all()
+
+# Define the form for adding organizations
+class OrgForm(FlaskForm):
+    name = StringField('Organization Name', validators=[DataRequired()])
+    department = StringField('Department')
+    submit = SubmitField('Add Organization')
+
+@app.route('/add_org', methods=['GET', 'POST'])
+def add_org():
+    form = OrgForm()
+    if form.validate_on_submit():
+        name = form.name.data
+        department = form.department.data
+        new_org = OrgDetails(name=name, department=department)
+        db.session.add(new_org)
+        db.session.commit()
+        flash('Organization added successfully!', 'success')
+        return redirect(url_for('org_details'))
+    return redirect(url_for('org_details'))
+
+@app.route('/org_details')
+def org_details():
+    org_details = OrgDetails.query.all()
+    form = OrgForm()
+    return render_template('org_details.html', org_details=org_details, form=form)
+
+@app.route('/edit_org/<int:org_id>', methods=['POST'])
+def edit_org(org_id):
+    org = OrgDetails.query.get_or_404(org_id)
+    org.name = request.form['name']
+    org.department = request.form['department']
+    db.session.commit()
+    flash('Organization details updated successfully!', 'success')
+    return redirect(url_for('org_details'))
+
+@app.route('/delete_org/<int:org_id>', methods=['POST'])
+def delete_org(org_id):
+    org = OrgDetails.query.get_or_404(org_id)
+    db.session.delete(org)
+    db.session.commit()
+    flash('Organization deleted successfully!', 'success')
+    return redirect(url_for('org_details'))
 
 @app.route('/')
 def home():
@@ -81,85 +83,24 @@ def manage_members():
 
 @app.route('/save_leave/<int:member_id>', methods=['POST'])
 def save_leave(member_id):
-    member = Team.query.get_or_404(member_id)
-    try:
-        start_date = date.fromisoformat(request.form['start_date'])
-        end_date = date.fromisoformat(request.form['end_date'])
-    except ValueError:
-        flash("Invalid date format. Please use YYYY-MM-DD.", 'danger')
-        return redirect(url_for('manage_members'))
-
-    # Check if dates are valid
-    if start_date > end_date:
-        flash("End date must be after start date.", 'danger')
-        return redirect(url_for('manage_members'))
-    if start_date < date.today():
-        flash("Leave cannot start in the past.", 'danger')
-        return redirect(url_for('manage_members'))
-
-    # Check if rota exists for these dates
-    existing_rotas = Rota.query.filter(Rota.week_range.contains(start_date.strftime('%d/%m/%Y'))).all()
-    if existing_rotas:
-        for rota in existing_rotas:
-            if member.name not in rota.shift_8_5:
-                flash("Leave can only be applied by members in the morning shift.", 'danger')
-                return redirect(url_for('manage_members'))
-
-    # Check for overlapping leaves
-    overlapping_leaves = Leave.query.filter(
-        Leave.member_id == member_id,
-        Leave.start_date <= end_date,
-        Leave.end_date >= start_date
-    ).first()
-    if overlapping_leaves:
-        flash(f"Leave conflicts with an existing leave from {overlapping_leaves.start_date} to {overlapping_leaves.end_date}.", 'danger')
-        return redirect(url_for('manage_members'))
-
-    # If all checks pass, save the leave
-    new_leave = Leave(member_id=member_id, start_date=start_date, end_date=end_date)
-    db.session.add(new_leave)
-    db.session.commit()
-    flash("Leave added successfully.", 'success')
-    return redirect(url_for('manage_members'))
+    return save_leave_logic(member_id, request.form)
 
 @app.route('/on_leave')
 def on_leave():
-    """
-    Displays a list of members currently on leave.
-    """
     today = date.today()
-    print(f"Today's date: {today}")
-
-    # Query for leaves where today's date is within the start and end dates
-    leaves = Leave.query.filter(
-        Leave.end_date >= today
-    ).all()
-
-    print(f"Number of leaves found: {len(leaves)}")
-    for leave in leaves:
-        print(f"Leave ID: {leave.id}, Member ID: {leave.member_id}, Start Date: {leave.start_date}, End Date: {leave.end_date}")
-
+    leaves = get_leaves_on_date(today)
     return render_template('on_leave.html', leaves=leaves)
+
 @app.route('/delete_leave/<int:leave_id>', methods=['POST'])
 def delete_leave(leave_id):
-    leave = Leave.query.get_or_404(leave_id)
-    db.session.delete(leave)
-    db.session.commit()
-    return redirect(url_for('on_leave'))
+    return delete_leave_logic(leave_id)
+
 @app.route('/edit_leave/<int:leave_id>', methods=['GET', 'POST'])
 def edit_leave(leave_id):
-    leave = Leave.query.get_or_404(leave_id)
     if request.method == 'POST':
-        start_date = date.fromisoformat(request.form['start_date'])
-        end_date = date.fromisoformat(request.form['end_date'])
-        if start_date > end_date:
-            return "End date must be after start date."
-
-        leave.start_date = start_date
-        leave.end_date = end_date
-        db.session.commit()
-        return redirect(url_for('on_leave'))
-    return render_template('on_leave.html', leave=leave) 
+        return edit_leave_logic(leave_id, request.form)
+    leave = Leave.query.get_or_404(leave_id)
+    return render_template('on_leave.html', leave=leave)
 
 @app.route('/edit_member/<int:member_id>', methods=['GET', 'POST'])
 def edit_member(member_id):
@@ -182,8 +123,6 @@ def delete_member(member_id):
     db.session.delete(member)
     db.session.commit()
     return redirect(url_for('manage_members'))
-
-
 
 @app.route('/shifts', methods=['GET', 'POST'])
 def shifts():
@@ -277,63 +216,6 @@ def generate_rota():
 
     rotas = Rota.query.all()
     return render_template('rota.html', rotas=rotas)
-
-def generate_weekly_rota(eligible_members, current_date, last_night_shift_member, night_shift_history, evening_shift_history):
-    week_start_date = current_date
-    week_end_date = current_date + timedelta(days=4)  # Friday (End of the week)
-    week_range = f"{week_start_date.strftime('%d/%m/%Y')} - {week_end_date.strftime('%d/%m/%Y')}"
-
-    eligible_members_for_this_week = [
-        m for m in eligible_members if not any(
-            leave.start_date <= current_date <= leave.end_date for leave in m.leaves
-        )
-    ]
-
-    # Remove last night shift member if present
-    if last_night_shift_member in eligible_members_for_this_week:
-        eligible_members_for_this_week.remove(last_night_shift_member)
-
-    remaining_members_evening = [m for m in eligible_members_for_this_week if m.name not in evening_shift_history]
-    remaining_members_night = [m for m in eligible_members_for_this_week if m.name not in night_shift_history]
-
-    if not remaining_members_evening:
-        remaining_members_evening = eligible_members_for_this_week
-    if not remaining_members_night:
-        remaining_members_night = eligible_members_for_this_week
-
-    evening_shift_member = random.choice(remaining_members_evening)
-    if evening_shift_member in eligible_members_for_this_week:
-        eligible_members_for_this_week.remove(evening_shift_member)
-    evening_shift_history.add(evening_shift_member.name)
-
-    night_shift_member = random.choice(remaining_members_night)
-    if night_shift_member in eligible_members_for_this_week:
-        eligible_members_for_this_week.remove(night_shift_member)
-    night_shift_history.add(night_shift_member.name)
-
-    # Ensure we have enough members for morning shifts
-    morning_shift_members = random.sample(eligible_members_for_this_week, min(4, len(eligible_members_for_this_week)))
-
-    if last_night_shift_member and len(morning_shift_members) < 4:
-        morning_shift_members.insert(0, last_night_shift_member)
-
-    # Ensure the morning shift has at least two members
-    if len(morning_shift_members) < 2:
-        return "Morning shift must have at least two members."
-
-    night_off_value = last_night_shift_member.name if last_night_shift_member else None
-
-    week_rota = Rota(
-        week_range=week_range,
-        shift_8_5=', '.join([m.name for m in morning_shift_members]),
-        shift_5_8=evening_shift_member.name,
-        shift_8_8=night_shift_member.name,
-        night_off=night_off_value
-    )
-    db.session.add(week_rota)
-    db.session.commit()
-
-    return night_shift_member
 
 if __name__ == '__main__':
     app.run(debug=True)

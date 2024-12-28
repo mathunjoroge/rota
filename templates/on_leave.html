@@ -6,6 +6,7 @@
 <div class="container mt-4">
     <h1 class="mb-4">Members on Leave</h1>
 
+    {% if leaves %}
     <table class="table table-bordered">
         <thead class="table-light">
             <tr>
@@ -48,7 +49,7 @@
                             <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                         </div>
                         <form method="POST" action="{{ url_for('edit_leave', leave_id=leave.id) }}">
-                         
+                            
                             <div class="modal-body">
                                 <div class="mb-3">
                                     <label for="start_date_{{ leave.id }}" class="form-label">Leave Start Date</label>
@@ -72,8 +73,11 @@
             {% endfor %}
         </tbody>
     </table>
+    {% else %}
+    <div class="alert alert-info" role="alert">
+        No members currently on leave.
+    </div>
+    {% endif %}
 </div>
 
-<!-- Ensure Bootstrap JS is included for Modal functionality -->
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js" integrity="sha384-geWF76RCwLtnZ8qwWowPQNguL3RmwHVBC9FhGdlKrxdiJJigb/j/68SIy3Te4Bkz" crossorigin="anonymous"></script>
 {% endblock %}
