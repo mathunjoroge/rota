@@ -5,15 +5,19 @@
 {% block content %}
 <div class="container mt-4">
     <h1 class="mb-4">Team Members</h1>
-{% with messages = get_flashed_messages() %}
-  {% if messages %}
-    <ul class=flashes>
-    {% for message in messages %}
-      <li>{{ message }}</li>
-    {% endfor %}
-    </ul>
-  {% endif %}
-{% endwith %}
+    
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <div class="alert-container">
+          {% for category, message in messages %}
+            <div class="alert alert-{{ category }}" role="alert">
+              {{ message }}
+            </div>
+          {% endfor %}
+        </div>
+      {% endif %}
+    {% endwith %}
+    
     <!-- Add Member Form -->
     <form method="POST" action="{{ url_for('manage_members') }}" class="d-flex mb-4">
         <input 

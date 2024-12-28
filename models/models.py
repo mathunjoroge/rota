@@ -20,13 +20,20 @@ class Leave(db.Model):
     member = db.relationship('Team', backref=db.backref('leaves', cascade="all, delete"))
 
     def days_taken(self):
-        """Calculates the number of days taken for the leave, including both start and end dates."""
-        return (self.end_date - self.start_date).days + 1
+        """Calculate the number of days taken."""
+        if self.start_date and self.end_date:
+            return (self.end_date - self.start_date).days + 1
+        return 0
 
     def days_remaining(self):
-        """Calculates the number of days remaining for the leave. If the leave has ended, it returns 0."""
-        current_date = date.today()
-        return max(0, (self.end_date - current_date).days)
+        """Calculate the number of days remaining from today."""
+        if self.end_date:
+            remaining_days = (self.end_date - date.today()).days
+            return max(remaining_days, 0)  # Ensure it doesn't return negative values
+        return 0
+
+    def __repr__(self):
+        return f"<Leave {self.id} - Member {self.member_id}: {self.start_date} to {self.end_date}>"
 
 class Shift(db.Model):
     id = db.Column(db.Integer, primary_key=True)

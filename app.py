@@ -171,7 +171,16 @@ def delete_rota():
 @app.route('/export_pdf')
 def export_pdf():
     rotas = Rota.query.all()
-    html = render_template('export_pdf.html', rotas=rotas)
+    org_details = OrgDetails.query.all()  # Fetch organization details
+
+    # Find the start and end dates from the rota entries
+    if rotas:
+        start_date = min([datetime.strptime(rota.week_range.split(' - ')[0], '%d/%m/%Y') for rota in rotas])
+        end_date = max([datetime.strptime(rota.week_range.split(' - ')[1], '%d/%m/%Y') for rota in rotas])
+    else:
+        start_date = end_date = None
+
+    html = render_template('export_pdf.html', rotas=rotas, org_details=org_details, start_date=start_date, end_date=end_date)
     pdf = BytesIO()
     pisa_status = pisa.CreatePDF(html, dest=pdf)
     
