@@ -8,7 +8,7 @@ from io import BytesIO
 from xhtml2pdf import pisa
 
 # Import models and rota logic
-from models.models import db, OrgDetails, Team, Shift, Rota
+from models.models import db, OrgDetails, Team, Shift, Rota, Leave
 from rota_logic import generate_weekly_rota
 from leave_logic import save_leave_logic, get_leaves_on_date, delete_leave_logic, edit_leave_logic
 

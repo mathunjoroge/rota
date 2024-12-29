@@ -42,7 +42,7 @@ def save_leave_logic(member_id, form):
     db.session.add(new_leave)
     db.session.commit()
     flash("Leave added successfully.", 'success')
-    return redirect(url_for('manage_members'))
+    return redirect(url_for('on_leave'))
 
 def get_leaves_on_date(today):
     """Retrieve all leaves ending on or after the specified date."""
@@ -85,9 +85,18 @@ def days_taken(self):
     return 0
 
 def days_remaining(self):
-    """Calculate the number of days remaining from today."""
-    if self.end_date:
-        remaining_days = (self.end_date - date.today()).days
-        print(f"[DEBUG] Days remaining: {remaining_days} (Today: {date.today()}, End: {self.end_date})")
-        return max(remaining_days, 0)  # Ensure it doesn't return negative values
+    """Calculate the number of leave days remaining (Monday to Friday)."""
+    if date.today() < self.start_date:
+        # Leave hasn't started; remaining days are the same as total days taken
+        return self.days_taken()
+    elif date.today() <= self.end_date:
+        # Leave has started; count remaining weekdays from today to end_date
+        total_remaining_days = 0
+        current_date = date.today()
+        while current_date <= self.end_date:
+            if current_date.weekday() < 5:  # Weekday (Monday=0 to Friday=4)
+                total_remaining_days += 1
+            current_date += timedelta(days=1)
+        return total_remaining_days
+    # Leave has ended
     return 0
