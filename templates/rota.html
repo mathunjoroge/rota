@@ -19,7 +19,7 @@
     <h1>Generate Rota</h1>
     
     <!-- Form to generate or delete rota -->
-    <form action="{{ url_for('generate_rota') }}" method="POST">
+    <form action="{{ url_for('rota.generate_rota') }}" method="POST">
         <div class="container" style="width: 50%;">
             <div class="row">
                 <div class="col-md-6">
@@ -35,12 +35,12 @@
         <div class="container" style="width: 49.5%;">
 <div class="row mt-3">
     <div class="col-md-4">
-        <form action="{{ url_for('generate_rota') }}" method="POST">
+        <form action="{{ url_for('rota.generate_rota') }}" method="POST">
             <button type="submit" name="action" value="generate" class="btn btn-primary">Generate Rota</button>
         </form>
     </div>
     <div class="col-md-4">
-        <form action="{{ url_for('delete_rota') }}" method="POST">
+        <form action="{{ url_for('rota.delete_rota') }}" method="POST">
             <button type="submit" class="btn btn-danger">Delete Rota</button>
         </form>
     </div>
@@ -74,7 +74,7 @@
         </tbody>
     </table>
     <!-- Export to PDF button -->
-    <a href="{{ url_for('export_pdf') }}" class="btn btn-secondary mt-2">Export to PDF</a>
+    <a href="{{ url_for('pdf.export_pdf') }}" class="btn btn-secondary mt-2">Export to PDF</a>
     {% else %}
     <div class="alert alert-info" role="alert">
         No rota available yet.

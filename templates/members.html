@@ -19,7 +19,7 @@
     {% endwith %}
     
     <!-- Add Member Form -->
-    <form method="POST" action="{{ url_for('manage_members') }}" class="d-flex mb-4">
+    <form method="POST" action="{{ url_for('members.manage_members') }}" class="d-flex mb-4">
         <input 
             type="text" 
             name="name" 
@@ -55,7 +55,7 @@
                     <!-- Delete Member -->
                     <form 
                         method="POST" 
-                        action="{{ url_for('delete_member', member_id=member.id) }}" 
+                        action="{{ url_for('members.delete_member', member_id=member.id) }}" 
                         class="d-inline">
                         <button 
                             type="submit" 
@@ -82,7 +82,7 @@
                                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                                 </div>
                                 <div class="modal-body">
-                                    <form method="POST" action="{{ url_for('save_leave', member_id=member.id) }}">
+                                    <form method="POST" action="{{ url_for('leave.save_leave', member_id=member.id) }}">
                                         <div class="mb-3">
                                             <label for="start_date" class="form-label">Leave Start Date</label>
                                             <input type="date" id="start_date" name="start_date" class="form-control" required>

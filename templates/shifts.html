@@ -72,7 +72,7 @@
                     Edit
                 </button>
                 <!-- Delete Form -->
-                <form method="POST" action="{{ url_for('delete_shift', shift_id=shift.id) }}" class="d-inline">
+                <form method="POST" action="{{ url_for('shifts.delete_shift', shift_id=shift.id) }}" class="d-inline">
                     <button 
                         type="submit" 
                         class="btn btn-danger btn-sm px-2 py-1" 
@@ -97,7 +97,7 @@
                         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                     </div>
                     <div class="modal-body">
-                        <form method="POST" action="{{ url_for('edit_shift', shift_id=shift.id) }}">
+                        <form method="POST" action="{{ url_for('shifts.edit_shift', shift_id=shift.id) }}">
                             <div class="mb-3">
                                 <label for="shiftName{{ shift.id }}" class="form-label">Shift Name</label>
                                 <input 

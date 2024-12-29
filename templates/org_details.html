@@ -40,7 +40,7 @@
                             Edit
                         </button>
                         <!-- Delete Button -->
-                        <form action="{{ url_for('delete_org', org_id=org.id) }}" method="POST" style="display:inline-block;">
+                        <form action="{{ url_for('org.delete_org', org_id=org.id) }}" method="POST" style="display:inline-block;">
                             <button type="submit" class="btn btn-danger">Delete</button>
                         </form>
                     </td>
@@ -55,7 +55,7 @@
                                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                             </div>
                             <div class="modal-body">
-                                <form action="{{ url_for('edit_org', org_id=org.id) }}" method="POST">
+                                <form action="{{ url_for('org.edit_org', org_id=org.id) }}" method="POST">
                                     {{ form.hidden_tag() }}
                                     <div class="form-group">
                                         <label for="name">Organization Name</label>
@@ -95,7 +95,7 @@
                         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                     </div>
                     <div class="modal-body">
-                        <form action="{{ url_for('add_org') }}" method="POST">
+                        <form action="{{ url_for('org.add_org') }}" method="POST">
                             {{ form.hidden_tag() }}
                             <div class="form-group">
                                 <label for="name">Organization Name</label>

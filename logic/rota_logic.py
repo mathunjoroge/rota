@@ -17,15 +17,15 @@ def generate_weekly_rota(eligible_members, current_date, last_night_shift_member
         )
     ]
 
-    # Ensure last night shift member is not included if they are supposed to be off this week for evening shift
-    if last_night_shift_member and last_night_shift_member in eligible_members_for_this_week:
-        eligible_members_for_this_week = [m for m in eligible_members_for_this_week if m.name != last_night_shift_member.name]
-
     # Function to select members not in a set of names
     def select_members(members, exclude_names):
         return [m for m in members if m.name not in exclude_names]
 
-    # Select evening shift member, excluding last night shift member
+    # Remove last night shift member if present (they are on a week off)
+    if last_night_shift_member and last_night_shift_member in eligible_members_for_this_week:
+        eligible_members_for_this_week = [m for m in eligible_members_for_this_week if m.name != last_night_shift_member.name]
+
+    # Select evening shift member
     evening_shift_member = select_members(
         [m for m in eligible_members_for_this_week if m.name not in evening_shift_history], 
         assigned_members
@@ -64,10 +64,6 @@ def generate_weekly_rota(eligible_members, current_date, last_night_shift_member
         assigned_members
     )
 
-    # Add the last night shift member to the morning shift since they are off this week
-    if last_night_shift_member:
-        morning_shift_members.insert(0, last_night_shift_member)  # Adding at the start to ensure they're included
-
     # Ensure we have at least 2 members for the morning shift
     if len(morning_shift_members) < 2:
         # If there are not enough members, we'll have to compromise on shift requirements
@@ -83,6 +79,13 @@ def generate_weekly_rota(eligible_members, current_date, last_night_shift_member
     assigned_members.update(m.name for m in morning_shift_members)
 
     night_off_value = last_night_shift_member.name if last_night_shift_member else None
+
+    # Here we ensure the member who was off last week is added to the morning shift for this week
+    if last_night_shift_member:
+        morning_shift_members.append(last_night_shift_member)
+
+    # Remove any duplicates which might have occurred from appending last_night_shift_member
+    morning_shift_members = list(dict.fromkeys(morning_shift_members))
 
     week_rota = Rota(
         week_range=week_range,
