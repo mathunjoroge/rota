@@ -3,22 +3,36 @@
 <head>
     <meta charset="UTF-8">
     <title>Temperature Log</title>
-    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css">
+    
 <style>
-
     .table, .table th, .table td {
         border: 1px solid black;
         text-align: center;
     }
     .table {
-padding-top: 5px;
-}
-
+        padding-top: 5px;
+    }
+    .org-details img {
+        width: 150px; /* Adjust this value as needed */
+        height: auto; /* Maintain aspect ratio */
+        margin-bottom: 20px; /* Space below the image */
+    }
 </style>
-
 </head>
 <body>
-    <h1>Temperature Log</h1>
+    <div style="text-align: center;">
+        {% if org_details %}
+            <div class="org-details">
+                <img src="{{ url_for('static', filename='images/coat.png', _external=True) }}" alt="Coat of Arms">
+                <h1><strong>Republic of Kenya</strong></h1>
+                {% for org in org_details %}
+                    <div><strong>{{ org.name }}</strong></div>
+                    <div><strong>{{ org.department }}</strong></div>
+                {% endfor %}
+            </div>
+        {% endif %}
+        <h1>Temperature Log</h1>
+    </div>
     <p>From: {{ start_date }} To: {{ end_date }}</p>
     <div class="container">
         <table class="table table-bordered table-striped">

@@ -1,7 +1,7 @@
 from flask import Blueprint, render_template, request, current_app, send_file, make_response
 from flask_login import login_required
 from flask_apscheduler import APScheduler
-from models.models import TemperatureLog, db
+from models.models import TemperatureLog, db, OrgDetails
 import requests
 from datetime import datetime
 import os
@@ -103,33 +103,50 @@ def temp_log():
     
     return render_template('temp_log.html', temperature_logs=temperature_logs)
 
-@temp_bp.route('/export_logs')
+@temp_bp.route('/export_logs', methods=['GET', 'POST'])
 @login_required
 def export_logs():
     """Export temperature logs between specified dates to PDF."""
-    start_date = request.args.get('start_date')
-    end_date = request.args.get('end_date')
+    if request.method == 'POST':
+        start_date = request.form.get('start_date')
+        end_date = request.form.get('end_date')
 
-    if not start_date or not end_date:
-        return "Start date and end date are required", 400
+        if not start_date or not end_date:
+            return "Start date and end date are required", 400
 
-    logs = TemperatureLog.query.filter(
-        TemperatureLog.date >= start_date,
-        TemperatureLog.date <= end_date
-    ).order_by(
-        TemperatureLog.date.asc(),
-        TemperatureLog.time.asc()
-    ).all()
+        logs = TemperatureLog.query.filter(
+            TemperatureLog.date >= start_date,
+            TemperatureLog.date <= end_date
+        ).order_by(
+            TemperatureLog.date.asc(),
+            TemperatureLog.time.asc()
+        ).all()
 
-    rendered_html = render_template('temp_log_pdf.html', logs=logs, start_date=start_date, end_date=end_date)
-    pdf = io.BytesIO()
-    pisa_status = pisa.CreatePDF(io.StringIO(rendered_html), dest=pdf)
+        org_details = OrgDetails.query.all()
+        rendered_html = render_template(
+            'temp_log_pdf.html',
+            logs=logs,
+            start_date=start_date,
+            end_date=end_date,
+            org_details=org_details
+        )
 
-    if pisa_status.err:
-        return "Error creating PDF", 500
+        pdf = io.BytesIO()
+        pisa_status = pisa.CreatePDF(io.StringIO(rendered_html), dest=pdf)
 
-    pdf.seek(0)
-    return send_file(pdf, mimetype='application/pdf', as_attachment=True, download_name=f'temp_logs_{start_date}_to_{end_date}.pdf')
+        if pisa_status.err:
+            return "Error creating PDF", 500
+
+        pdf.seek(0)
+        return send_file(
+            pdf,
+            mimetype='application/pdf',
+            as_attachment=True,
+            download_name=f'temp_logs_{start_date}_to_{end_date}.pdf'
+        )
+
+    return render_template('temp_log.html')
+
 
 @temp_bp.route('/scheduler_status')
 @login_required
