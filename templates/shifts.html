@@ -1,0 +1,160 @@
+{% extends 'base.html' %}
+
+{% block title %}Manage Shifts{% endblock %}
+
+{% block content %}
+<h1>Manage Shifts</h1>
+
+<!-- Flash Messages -->
+{% with messages = get_flashed_messages(with_categories=true) %}
+  {% if messages %}
+    <div class="alert-container">
+      {% for category, message in messages %}
+        <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+          {{ message }}
+          <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+      {% endfor %}
+    </div>
+  {% endif %}
+{% endwith %}
+
+<!-- Add Shift Form -->
+<form method="POST" action="/shifts" class="mb-4">
+    <div class="row">
+        <div class="col-md-3">
+            <input type="text" name="shift_name" class="form-control" placeholder="Shift Name" required>
+        </div>
+        <div class="col-md-2">
+            <input type="time" name="start_time" class="form-control" required>
+        </div>
+        <div class="col-md-2">
+            <input type="time" name="end_time" class="form-control" required>
+        </div>
+        <div class="col-md-2">
+            <input type="number" name="max_members" class="form-control" placeholder="Max Members" required>
+        </div>
+        <div class="col-md-2">
+            <input type="number" name="min_members" class="form-control" placeholder="Min Members" required>
+        </div>
+        <div class="col-md-1">
+            <button type="submit" class="btn btn-primary w-100">Add Shift</button>
+        </div>
+    </div>
+</form>
+
+<h2 class="mt-4 text-white bg-primary p-2">shits</h2>
+<table class="table table-bordered">
+    <thead>
+        <tr>
+            <th>Shift Name</th>
+            <th>Start Time</th>
+            <th>End Time</th>
+            <th>Max Members</th>
+            <th>Min Members</th>
+            <th style="width: 15%; white-space: nowrap;">Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for shift in shifts %}
+        <tr>
+            <td>{{ shift.name }}</td>
+            <td>{{ shift.start_time.strftime('%H:%M') }}</td>
+            <td>{{ shift.end_time.strftime('%H:%M') }}</td>
+            <td>{{ shift.max_members }}</td>
+            <td>{{ shift.min_members }}</td>
+            <td class="text-nowrap">
+                <!-- Edit Button to trigger modal -->
+                <button 
+                    class="btn btn-warning btn-sm me-2" 
+                    data-bs-toggle="modal" 
+                    data-bs-target="#editShiftModal{{ shift.id }}">
+                    Edit
+                </button>
+                <!-- Delete Form -->
+                <form method="POST" action="{{ url_for('shifts.delete_shift', shift_id=shift.id) }}" class="d-inline">
+                    <button 
+                        type="submit" 
+                        class="btn btn-danger btn-sm px-2 py-1" 
+                        style="font-size: 0.85rem;">
+                        Delete
+                    </button>
+                </form>
+            </td>
+        </tr>
+
+        <!-- Edit Shift Modal -->
+        <div 
+            class="modal fade" 
+            id="editShiftModal{{ shift.id }}" 
+            tabindex="-1" 
+            aria-labelledby="editShiftModalLabel{{ shift.id }}" 
+            aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="editShiftModalLabel{{ shift.id }}">Edit Shift</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <form method="POST" action="{{ url_for('shifts.edit_shift', shift_id=shift.id) }}">
+                            <div class="mb-3">
+                                <label for="shiftName{{ shift.id }}" class="form-label">Shift Name</label>
+                                <input 
+                                    type="text" 
+                                    id="shiftName{{ shift.id }}" 
+                                    name="shift_name" 
+                                    class="form-control" 
+                                    value="{{ shift.name }}" 
+                                    required>
+                            </div>
+                            <div class="mb-3">
+                                <label for="startTime{{ shift.id }}" class="form-label">Start Time</label>
+                                <input 
+                                    type="time" 
+                                    id="startTime{{ shift.id }}" 
+                                    name="start_time" 
+                                    class="form-control" 
+                                    value="{{ shift.start_time.strftime('%H:%M') }}" 
+                                    required>
+                            </div>
+                            <div class="mb-3">
+                                <label for="endTime{{ shift.id }}" class="form-label">End Time</label>
+                                <input 
+                                    type="time" 
+                                    id="endTime{{ shift.id }}" 
+                                    name="end_time" 
+                                    class="form-control" 
+                                    value="{{ shift.end_time.strftime('%H:%M') }}" 
+                                    required>
+                            </div>
+                            <div class="mb-3">
+                                <label for="maxMembers{{ shift.id }}" class="form-label">Max Members</label>
+                                <input 
+                                    type="number" 
+                                    id="maxMembers{{ shift.id }}" 
+                                    name="max_members" 
+                                    class="form-control" 
+                                    value="{{ shift.max_members }}" 
+                                    required>
+                            </div>
+                            <div class="mb-3">
+                                <label for="minMembers{{ shift.id }}" class="form-label">Min Members</label>
+                                <input 
+                                    type="number" 
+                                    id="minMembers{{ shift.id }}" 
+                                    name="min_members" 
+                                    class="form-control" 
+                                    value="{{ shift.min_members }}" 
+                                    required>
+                            </div>
+                            <button type="submit" class="btn btn-primary">Save Changes</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

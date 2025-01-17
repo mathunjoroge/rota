@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Generated Leave Rota</title>
+    <style>
+        body { font-family: Arial, sans-serif; font-size: 12px; }
+        table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        th { background-color: #f4f4f4; }
+        h1, h2 { text-align: center; }
+        .org-details { text-align: center; margin-bottom: 20px; }
+        .disclaimer { margin-top: 20px; font-size: 10px; text-align: center; }
+    </style>
+</head>
+<body>
+    {% if org_details %}
+        <div class="org-details">
+            {% for org in org_details %}
+                <div><strong>{{ org.name }}</strong></div>
+                <div>{{ org.department }}</div>
+            {% endfor %}
+        </div>
+    {% endif %}
+    <h2>Leave Rota</h2>
+    <p>Generated on: {{ current_date }}</p>  <!-- Use the current_date from the server -->
+
+    {% if leaves %}
+    <table>
+        <thead>
+            <tr>
+                <th style="width:auto;">Name</th>
+                <th style="width:auto;">Leave Start Date</th>
+                <th style="width: auto;">Leave End Date</th>
+                <th style="width: auto;">Days Taken</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for leave in leaves %}
+            <tr>
+                <td>{{ leave.member.name if leave.member else "Unknown Member" }}</td>
+                <td>{{ leave.start_date.strftime('%d/%m/%Y') if leave.start_date else "N/A" }}</td>
+                <td>{{ leave.end_date.strftime('%d/%m/%Y') if leave.end_date else "N/A" }}</td>
+                <td>{{ leave.days_taken() }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p>No leave records available.</p>
+    {% endif %}
+
+    <div class="footer">
+        <p>© <b>Magic Rota</b> All rights reserved.</p>
+    </div>
+</body>
+</html>

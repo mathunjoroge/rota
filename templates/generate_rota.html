@@ -1,0 +1,24 @@
+{% extends 'base.html' %}
+
+{% block title %}Generate Rota{% endblock %}
+
+{% block content %}
+<h1>Generate Rota</h1>
+
+<form method="POST" action="/generate_rota" class="form-container">
+    <div class="form-row">
+        <div class="form-group">
+            <label for="start_date" class="form-label">Start Date</label>
+            <input type="date" name="start_date" id="start_date" class="form-control" required>
+        </div>
+        <div class="form-group">
+            <label for="end_date" class="form-label">End Date</label>
+            <input type="date" name="end_date" id="end_date" class="form-control" required>
+        </div>
+    </div>
+    <div class="form-row">
+        <button type="submit" class="btn btn-primary">Generate Rota</button>
+    </div>
+</form>
+
+{% endblock %}

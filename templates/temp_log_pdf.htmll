@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Temperature Log</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css">
+<style>
+
+    .table, .table th, .table td {
+        border: 1px solid black;
+        text-align: center;
+    }
+    .table {
+padding-top: 5px;
+}
+
+</style>
+
+</head>
+<body>
+    <h1>Temperature Log</h1>
+    <p>From: {{ start_date }} To: {{ end_date }}</p>
+    <div class="container">
+        <table class="table table-bordered table-striped">
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>AM</th>
+                    <th>Recorded Temp</th>
+                    <th>Estimated Room Temp</th>
+                    <th>Acceptable</th>
+                    <th>Initials</th>
+                    <th>PM</th>
+                    <th>Recorded Temp</th>
+                    <th>Estimated Room Temp</th>
+                    <th>Acceptable</th>
+                    <th>Initials</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for log in logs %}
+                <tr>
+                    <td>{{ log.date }}</td>
+                    {% if log.time == 'AM' %}
+                    <td>8:00 AM</td>
+                    <td>{{ log.recorded_temp }}</td>
+                    <td>{{ log.estimated_room }}</td>
+                    <td>{{ 'Yes' if log.acceptable else 'No' }}</td>
+                    <td>{{ log.initials }}</td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    {% else %}
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td>2:00 PM</td>
+                    <td>{{ log.recorded_temp }}</td>
+                    <td>{{ log.estimated_room }}</td>
+                    <td>{{ 'Yes' if log.acceptable else 'No' }}</td>
+                    <td>{{ log.initials }}</td>
+                    {% endif %}
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</body>
+</html>

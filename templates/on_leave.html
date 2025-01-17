@@ -1,0 +1,101 @@
+{% extends 'base.html' %}
+
+{% block title %}Members on Leave{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h1 class="mb-4">Members on Leave</h1>
+
+    <!-- Export PDF Button -->
+    <div class="mb-3">
+        <a href="{{ url_for('pdf.leave_rota_pdf') }}" class="btn btn-primary">Export as PDF</a>
+    </div>
+    
+    <!-- Flash Messages -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <div class="alert-container">
+          {% for category, message in messages %}
+            <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+              {{ message }}
+              <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+          {% endfor %}
+        </div>
+      {% endif %}
+    {% endwith %}
+    
+    {% if leaves_info %}
+    <table class="table table-bordered">
+        <thead class="table-light">
+            <tr>
+                <th>Member Name</th>
+                <th>Leave Start Date</th>
+                <th>Leave End Date</th>
+                <th>Days Taken</th>
+                <th>Days Remaining</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for leave_info in leaves_info %}
+            <tr>
+                <td>{{ leave_info.leave.member.name }}</td>
+                <td>{{ leave_info.leave.start_date }}</td>
+                <td>{{ leave_info.leave.end_date }}</td>
+                <td>{{ leave_info.days_taken }}</td>
+                <td>{{ leave_info.days_remaining }}</td>
+                <td>
+                    <!-- Edit Leave Button -->
+                    <button class="btn btn-warning btn-sm" data-bs-toggle="modal" 
+                            data-bs-target="#editLeaveModal{{ leave_info.leave.id }}">Edit</button>
+
+                    <!-- Delete Leave Form -->
+                    <form action="{{ url_for('leave.delete_leave', leave_id=leave_info.leave.id) }}" method="POST" style="display:inline-block;">
+                        <input type="hidden" name="_method" value="DELETE">
+                        <button type="submit" class="btn btn-danger btn-sm">Delete</button>
+                    </form>
+                </td>
+            </tr>
+
+            <!-- Modal for each leave -->
+            <div class="modal fade" id="editLeaveModal{{ leave_info.leave.id }}" tabindex="-1" 
+                 aria-labelledby="editLeaveModalLabel{{ leave_info.leave.id }}" aria-hidden="true">
+                <div class="modal-dialog">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title" id="editLeaveModalLabel{{ leave_info.leave.id }}">Edit Leave for {{ leave_info.leave.member.name }}</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                        </div>
+                        <form method="POST" action="{{ url_for('leave.edit_leave', leave_id=leave_info.leave.id) }}">
+                            <div class="modal-body">
+                                <div class="mb-3">
+                                    <label for="start_date_{{ leave_info.leave.id }}" class="form-label">Leave Start Date</label>
+                                    <input type="date" id="start_date_{{ leave_info.leave.id }}" name="start_date" 
+                                           class="form-control" value="{{ leave_info.leave.start_date }}" required>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="end_date_{{ leave_info.leave.id }}" class="form-label">Leave End Date</label>
+                                    <input type="date" id="end_date_{{ leave_info.leave.id }}" name="end_date" 
+                                           class="form-control" value="{{ leave_info.leave.end_date }}" required>
+                                </div>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                                <button type="submit" class="btn btn-primary">Save Changes</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div class="alert alert-info" role="alert">
+        No members currently on leave.
+    </div>
+    {% endif %}
+</div>
+
+{% endblock %}

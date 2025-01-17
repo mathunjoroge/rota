@@ -1,0 +1,35 @@
+{% extends 'base.html' %}
+
+{% block title %}Select Night Shift Off Member{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h1>Select Member for Night Shift Off</h1>
+    
+    {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+    <div class="alert-container">
+        {% for category, message in messages %}
+        <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+    {% endwith %}
+    
+    <form action="{{ url_for('rota.select_night_off') }}" method="POST">
+    <div class="mb-3">
+        <label for="member" class="form-label">Select Member for Night Shift Off:</label>
+        <select name="member_id" id="member" data-live-search="true" class="form-select">
+            {% for member in members %}
+            <option value="{{ member.id }}">{{ member.name }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <button type="submit" class="btn btn-primary">Confirm</button>
+    <a href="{{ url_for('rota.generate_rota') }}" class="btn btn-secondary">Back to Rota</a>
+</form>
+</div>
+{% endblock %}

@@ -1,0 +1,201 @@
+{% extends 'base.html' %}
+
+{% block title %}Manage Members{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h1 class="mb-4">Team Members</h1>
+    
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <div class="alert-container">
+          {% for category, message in messages %}
+            <div class="alert alert-{{ category }}" role="alert">
+              {{ message }}
+            </div>
+          {% endfor %}
+        </div>
+      {% endif %}
+    {% endwith %}
+    
+    <!-- Add Member Form -->
+<form method="POST" action="{{ url_for('members.add_member') }}" class="d-flex mb-4">
+    <input 
+        type="text" 
+        name="name" 
+        placeholder="Add new member" 
+        class="form-control me-2" 
+        required>
+    
+    <!-- New Dropdown for Role -->
+    <select name="is_admin" class="form-select me-2" style="width:50%;" required>
+        <option value="0" selected>Member</option>
+        <option value="1">Admin</option>
+    </select>
+
+    <button type="submit" class="btn btn-primary">Add Member</button>
+</form>
+
+    <!-- Members Table -->
+    <table class="table table-striped table-bordered">
+        <thead class="table-light">
+            <tr>
+                <th>Name</th>
+                 <th>role</th>
+                <th style="width: 60%;">Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for member in teams %}
+            <tr>
+                <td>{{ member.name }}</td>
+                <td>
+  {% if member.is_admin == 1 %}
+    Team Leader
+  {% else %}
+    Team Member
+  {% endif %}
+</td>
+
+                <td>
+                    <!-- Edit Member -->
+                    <button 
+                        class="btn btn-warning btn-sm me-2" 
+                        data-bs-toggle="modal" 
+                        data-bs-target="#editMemberModal" 
+                        data-member-id="{{ member.id }}" 
+                        data-member-name="{{ member.name }}"
+                         data-member-role="{{ member.is_admin }}">
+                        Edit
+                    </button>
+                    
+                    <!-- Delete Member -->
+                    <form 
+                        method="POST" 
+                        action="{{ url_for('members.delete_member', member_id=member.id) }}" 
+                        class="d-inline">
+                        <button 
+                            type="submit" 
+                            class="btn btn-danger btn-sm"
+                            onclick="return confirm('Are you sure you want to delete this member?');">
+                            Delete
+                        </button>
+                    </form>
+                    
+                    <!-- Manage Leave -->
+                    <button 
+                        class="btn btn-info btn-sm ms-2" 
+                        data-bs-toggle="modal" 
+                        data-bs-target="#leaveModal{{ member.id }}">
+                        Manage Leave
+                    </button>
+
+                    <!-- Leave Modal -->
+                    <div class="modal fade" id="leaveModal{{ member.id }}" tabindex="-1" aria-labelledby="leaveModalLabel" aria-hidden="true">
+                        <div class="modal-dialog">
+                            <div class="modal-content">
+                                <div class="modal-header">
+                                    <h5 class="modal-title" id="leaveModalLabel">Manage Leave for {{ member.name }}</h5>
+                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                </div>
+                                <div class="modal-body">
+                                    <form method="POST" action="{{ url_for('leave.save_leave', member_id=member.id) }}">
+                                        <div class="mb-3">
+                                            <label for="start_date" class="form-label">Leave Start Date</label>
+                                            <input type="date" id="start_date" name="start_date" class="form-control" required>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label for="end_date" class="form-label">Leave End Date</label>
+                                            <input type="date" id="end_date" name="end_date" class="form-control" required>
+                                        </div>
+                                        <button type="submit" class="btn btn-primary">Save Leave</button>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<!-- Edit Member Modal -->
+<div class="modal fade" id="editMemberModal" tabindex="-1" aria-labelledby="editMemberModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="editMemberModalLabel">Edit Member</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+<form id="editMemberForm" method="POST">
+    <input type="hidden" id="edit_member_id" name="member_id">
+    
+    <div class="mb-3">
+        <label for="edit_member_name" class="form-label">Name</label>
+        <input type="text" id="edit_member_name" name="name" class="form-control" required>
+    </div>
+    
+    <div class="mb-3">
+        <label for="edit_is_admin" class="form-label">Role</label>
+        <select id="edit_is_admin" name="is_admin" class="form-select" required>
+            <option value="0">Member</option>
+            <option value="1">Admin</option>
+        </select>
+    </div>
+    
+    <button type="submit" class="btn btn-primary">Save Changes</button>
+</form>
+
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    var editMemberModal = document.getElementById('editMemberModal');
+    var editMemberForm = document.getElementById('editMemberForm');
+
+    editMemberModal.addEventListener('show.bs.modal', function (event) {
+        var button = event.relatedTarget;
+        var memberId = button.getAttribute('data-member-id');
+        var memberName = button.getAttribute('data-member-name');
+        var memberRole = button.getAttribute('data-member-role'); // Get role attribute
+
+        var modalTitle = editMemberModal.querySelector('.modal-title');
+        var memberIdInput = editMemberModal.querySelector('#edit_member_id');
+        var memberNameInput = editMemberModal.querySelector('#edit_member_name');
+        var memberRoleInput = editMemberModal.querySelector('#edit_is_admin');
+
+        modalTitle.textContent = 'Edit Member: ' + memberName;
+        memberIdInput.value = memberId;
+        memberNameInput.value = memberName;
+        memberRoleInput.value = memberRole; // Set role value in dropdown
+    });
+
+    editMemberForm.onsubmit = function (event) {
+        event.preventDefault();
+        var memberId = document.getElementById('edit_member_id').value;
+        var formData = new FormData(editMemberForm);
+
+        fetch('/edit_member/' + memberId, {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        }).then(response => response.json()).then(data => {
+            if (data.status === 'success') {
+                location.reload();
+            } else {
+                alert('Error updating member');
+            }
+        });
+    };
+});
+
+</script>
+{% endblock %}

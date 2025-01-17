@@ -1,0 +1,141 @@
+from flask import Blueprint, render_template, request, current_app, send_file, make_response
+from flask_login import login_required
+from flask_apscheduler import APScheduler
+from models.models import TemperatureLog, db
+import requests
+from datetime import datetime
+import os
+import io
+from xhtml2pdf import pisa
+
+# Initialize Blueprint
+temp_bp = Blueprint('temp_log', __name__)
+
+# Load configuration from environment
+API_KEY = os.getenv('OPENWEATHERMAP_API_KEY', '6d6bac6176e6352bf13dfee489537206')
+LOCATION = 'kisumu'
+
+def fetch_temperature():
+    """Fetch current temperature from the weather API."""
+    url = f'http://api.openweathermap.org/data/2.5/weather?q={LOCATION}&appid={API_KEY}&units=metric'
+    response = requests.get(url)
+    if response.status_code == 200:
+        data = response.json()
+        return data['main']['temp']
+    else:
+        current_app.logger.error(f"Failed to fetch temperature: {response.json().get('message', 'Unknown error')}")
+        return None
+
+def record_temperature(app, time_period):
+    """Record the fetched temperature into the database, adjusted for indoor conditions."""
+    with app.app_context():
+        temp = fetch_temperature()
+        if temp is not None:
+            # Estimate indoor temperature by subtracting 5°C from the outdoor temperature
+            estimated_room_temp = temp - 5
+            date_today = datetime.now().date()
+            acceptable = 15.0 <= estimated_room_temp <= 29.0
+            initials = 'SYS'
+
+            # Check if there's already an entry for the same date and time period
+            existing_log = TemperatureLog.query.filter_by(date=date_today, time=time_period).first()
+            if existing_log:
+                app.logger.warning(f"Temperature log already exists for {time_period} on {date_today}")
+                return
+
+            # Create and save temperature log
+            temp_log = TemperatureLog(
+                date=date_today,
+                time=time_period,
+                recorded_temp=temp,
+                acceptable=acceptable,
+                initials=initials,
+                estimated_room=estimated_room_temp  # Save estimated room temperature
+            )
+            db.session.add(temp_log)
+            db.session.commit()
+            app.logger.info(f"Recorded temperature: {temp}°C at {time_period} (Estimated Room: {estimated_room_temp}°C)")
+
+def schedule_tasks(app):
+    """Schedule periodic temperature recording tasks."""
+    scheduler = APScheduler()
+    scheduler.init_app(app)
+    scheduler.add_job(
+        id='record_temp_am',
+        func=lambda: record_temperature(app, 'AM'),
+        trigger='cron',
+        hour=8,  # 8:00 AM EAT
+        minute=0
+    )
+    scheduler.add_job(
+        id='record_temp_pm',
+        func=lambda: record_temperature(app, 'PM'),
+        trigger='cron',
+        hour=21,  # 3:00 PM EAT
+        minute=14 # Run at 15:41
+    )
+    scheduler.add_job(
+        id='record_temp_test',
+        func=lambda: record_temperature(app, 'TEST'),
+        trigger='date',
+        run_date=datetime.now().replace(second=0, microsecond=0)  # Run immediately for testing
+    )
+    scheduler.start()
+
+@temp_bp.route('/temp_log')
+@login_required
+def temp_log():
+    """Render temperature logs in a template."""
+    temperature_logs = db.session.query(
+        TemperatureLog.date,
+        TemperatureLog.time,
+        TemperatureLog.recorded_temp,
+        TemperatureLog.acceptable,
+        TemperatureLog.initials,
+        TemperatureLog.estimated_room
+    ).distinct(
+        TemperatureLog.date,
+        TemperatureLog.time
+    ).order_by(
+        TemperatureLog.date.desc(),
+        TemperatureLog.time.asc()
+    ).all()
+    
+    return render_template('temp_log.html', temperature_logs=temperature_logs)
+
+@temp_bp.route('/export_logs')
+@login_required
+def export_logs():
+    """Export temperature logs between specified dates to PDF."""
+    start_date = request.args.get('start_date')
+    end_date = request.args.get('end_date')
+
+    if not start_date or not end_date:
+        return "Start date and end date are required", 400
+
+    logs = TemperatureLog.query.filter(
+        TemperatureLog.date >= start_date,
+        TemperatureLog.date <= end_date
+    ).order_by(
+        TemperatureLog.date.asc(),
+        TemperatureLog.time.asc()
+    ).all()
+
+    rendered_html = render_template('temp_log_pdf.html', logs=logs, start_date=start_date, end_date=end_date)
+    pdf = io.BytesIO()
+    pisa_status = pisa.CreatePDF(io.StringIO(rendered_html), dest=pdf)
+
+    if pisa_status.err:
+        return "Error creating PDF", 500
+
+    pdf.seek(0)
+    return send_file(pdf, mimetype='application/pdf', as_attachment=True, download_name=f'temp_logs_{start_date}_to_{end_date}.pdf')
+
+@temp_bp.route('/scheduler_status')
+@login_required
+def scheduler_status():
+    """Return the current status of the scheduler."""
+    jobs = current_app.apscheduler.get_jobs()
+    return {
+        "jobs": [{"id": job.id, "next_run": str(job.next_run_time)} for job in jobs]
+    }
