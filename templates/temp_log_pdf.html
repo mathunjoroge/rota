@@ -3,21 +3,20 @@
 <head>
     <meta charset="UTF-8">
     <title>Temperature Log</title>
-    
-<style>
-    .table, .table th, .table td {
-        border: 1px solid black;
-        text-align: center;
-    }
-    .table {
-        padding-top: 5px;
-    }
-    .org-details img {
-        width: 150px; /* Adjust this value as needed */
-        height: auto; /* Maintain aspect ratio */
-        margin-bottom: 20px; /* Space below the image */
-    }
-</style>
+    <style>
+        .table, .table th, .table td {
+            border: 1px solid black;
+            text-align: center;
+        }
+        .table {
+            padding-top: 5px;
+        }
+        .org-details img {
+            width: 150px; /* Adjust this value as needed */
+            height: auto; /* Maintain aspect ratio */
+            margin-bottom: 20px; /* Space below the image */
+        }
+    </style>
 </head>
 <body>
 
@@ -30,12 +29,12 @@
             <thead>
                 <tr>
                     <th>Date</th>
-                    <th>AM</th>
+                    <th>AM Time</th>
                     <th>Recorded Temp</th>
                     <th>Estimated Room Temp</th>
                     <th>Acceptable</th>
                     <th>Initials</th>
-                    <th>PM</th>
+                    <th>PM Time</th>
                     <th>Recorded Temp</th>
                     <th>Estimated Room Temp</th>
                     <th>Acceptable</th>
@@ -43,33 +42,29 @@
                 </tr>
             </thead>
             <tbody>
-                {% for log in logs %}
-                <tr>
-                    <td>{{ log.date }}</td>
-                    {% if log.time == 'AM' %}
-                    <td>8:00 AM</td>
-                    <td>{{ log.recorded_temp }} &deg;C</td>
-                    <td>{{ log.estimated_room }} &deg;C</td>
-                    <td>{{ 'Yes' if log.acceptable else 'No' }}</td>
-                    <td>{{ log.initials }}</td>
-                    <td></td>
-                    <td></td>
-                    <td></td>
-                    <td></td>
-                    <td></td>
-                    {% else %}
-                    <td></td>
-                    <td></td>
-                    <td></td>
-                    <td></td>
-                    <td></td>
-                    <td>2:00 PM</td>
-                    <td>{{ log.recorded_temp }} &deg;C</td>
-                    <td>{{ log.estimated_room }} &deg;C</td>
-                    <td>{{ 'Yes' if log.acceptable else 'No' }}</td>
-                    <td>{{ log.initials }}</td>
-                    {% endif %}
-                </tr>
+                {% for date, times in grouped_logs.items() %}
+                    <tr>
+                        <td>{{ date.strftime('%d-%m-%Y') }}</td>
+                        {% if times['AM'] %}
+                            <td>8:00 AM</td>
+                            <td>{{ times['AM'].recorded_temp | round(2) }} &deg;C</td>
+                            <td>{{ times['AM'].estimated_room | round(2) }} &deg;C</td>
+                            <td>{{ 'Yes' if times['AM'].acceptable else 'No' }}</td>
+                            <td>{{ times['AM'].initials }}</td>
+                        {% else %}
+                            <td colspan="5" class="text-center">No AM Log</td>
+                        {% endif %}
+                        
+                        {% if times['PM'] %}
+                            <td>2:00 PM</td>
+                            <td>{{ times['PM'].recorded_temp | round(2) }} &deg;C</td>
+                            <td>{{ times['PM'].estimated_room | round(2) }} &deg;C</td>
+                            <td>{{ 'Yes' if times['PM'].acceptable else 'No' }}</td>
+                            <td>{{ times['PM'].initials }}</td>
+                        {% else %}
+                            <td colspan="5" class="text-center">No PM Log</td>
+                        {% endif %}
+                    </tr>
                 {% endfor %}
             </tbody>
         </table>

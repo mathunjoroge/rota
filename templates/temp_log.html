@@ -3,77 +3,65 @@
 {% block title %}Temperature Log{% endblock %}
 
 {% block content %}
-
 <div class="container">
     <h2>Temperature Log</h2>
-    <p>This log is auto-updated from <a href="//openweathermap.org">openweathermap</p></a>
-<div class="container" style="width:50%">
-    <form method="POST" action="{{ url_for('temp_log.export_logs') }}" class="form-container">
-        <div class="form-row d-flex align-items-end gap-3">
-            <div class="form-group mb-0">
-                <label for="start_date" class="form-label">Start Date</label>
-                <input type="date" name="start_date" id="start_date" class="form-control" required>
-            </div>
-            <div class="form-group mb-0">
-                <label for="end_date" class="form-label">End Date</label>
-                <input type="date" name="end_date" id="end_date" class="form-control" required>
-            </div>
-            <div class="form-group mb-0 d-flex align-items-end">
-                <button type="submit" class="btn btn-primary">Export Logs</button>
-            </div>
-        </div>
-    </form>
-</div>
+    <p>This log is auto-updated from <a href="//openweathermap.org">openweathermap</a></p>
 
+    <div class="container" style="width:50%">
+        <form method="POST" action="{{ url_for('temp_log.export_logs') }}" class="form-container">
+            <div class="form-row d-flex align-items-end gap-3">
+                <div class="form-group mb-0">
+                    <label for="start_date" class="form-label">Start Date</label>
+                    <input type="date" name="start_date" id="start_date" class="form-control" required>
+                </div>
+                <div class="form-group mb-0">
+                    <label for="end_date" class="form-label">End Date</label>
+                    <input type="date" name="end_date" id="end_date" class="form-control" required>
+                </div>
+                <div class="form-group mb-0 d-flex align-items-end">
+                    <button type="submit" class="btn btn-primary">Export Logs</button>
+                </div>
+            </div>
+        </form>
+    </div>
 
+    <table class="table table-bordered table-striped mt-4">
+        <thead>
+            <tr>
+                <th>Date</th>
+                <th>AM</th>
+                <th>Recorded Temp</th>
+                <th>Estimated Room Temp</th>
+                <th>Acceptable</th>
+                <th>Initials</th>
+                <th>PM</th>
+                <th>Recorded Temp</th>
+                <th>Estimated Room Temp</th>
+                <th>Acceptable</th>
+                <th>Initials</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for date, times in grouped_logs.items() %}
+            <tr>
+                <td>{{ date.strftime('%d-%m-%Y') }}</td>  <!-- Date formatted as dd-mm-yyyy -->
 
-<table class="table table-bordered table-striped mt-4">
-    <thead>
-        <tr>
-            <th>Date</th>
-            <th>AM</th>
-            <th>Recorded Temp</th>
-            <th>Estimated Room Temp</th>
-            <th>Acceptable</th>
-            <th>Initials</th>
-            <th>PM</th>
-            <th>Recorded Temp</th>
-            <th>Estimated Room Temp</th>
-            <th>Acceptable</th>
-            <th>Initials</th>
-        </tr>
-    </thead>
-    <tbody>
-        {% for log in temperature_logs %}
-        <tr>
-            <td>{{ log.date }}</td>
-            {% if log.time == 'AM' %}
-            <td>8:00 AM</td>
-            <td>{{ log.recorded_temp }} &deg;C</td>
-            <td>{{ log.estimated_room }} &deg;C</td>
-            <td>{{ 'Yes' if log.acceptable else 'No' }}</td>
-            <td>{{ log.initials }}</td>
-            <td></td>
-            <td></td>
-            <td></td>
-            <td></td>
-            <td></td>
-            
-            {% else %}
-            <td></td>
-            <td></td>
-            <td></td>
-            <td></td>
-            <td></td>
-            <td>2:00 PM</td>
-            <td>{{ log.recorded_temp }} &deg;C</td>
-            <td>{{ log.estimated_room }} &deg;C</td>
-            <td>{{ 'Yes' if log.acceptable else 'No' }}</td>
-            <td>{{ log.initials }}</td>
-            {% endif %}
-        </tr>
-        {% endfor %}
-    </tbody>
-</table>
+                <!-- AM -->
+                <td>{% if times.AM %}8:00 AM{% else %}-{% endif %}</td>
+                <td>{% if times.AM %}{{ '{:.2f}'.format(times.AM.recorded_temp) }} &deg;C{% else %}-{% endif %}</td>
+                <td>{% if times.AM %}{{ '{:.2f}'.format(times.AM.estimated_room) }} &deg;C{% else %}-{% endif %}</td>
+                <td>{% if times.AM %}{{ 'Yes' if times.AM.acceptable else 'No' }}{% else %}-{% endif %}</td>
+                <td>{% if times.AM %}{{ times.AM.initials }}{% else %}-{% endif %}</td>
+
+                <!-- PM -->
+                <td>{% if times.PM %}2:00 PM{% else %}-{% endif %}</td>
+                <td>{% if times.PM %}{{ '{:.2f}'.format(times.PM.recorded_temp) }} &deg;C{% else %}-{% endif %}</td>
+                <td>{% if times.PM %}{{ '{:.2f}'.format(times.PM.estimated_room) }} &deg;C{% else %}-{% endif %}</td>
+                <td>{% if times.PM %}{{ 'Yes' if times.PM.acceptable else 'No' }}{% else %}-{% endif %}</td>
+                <td>{% if times.PM %}{{ times.PM.initials }}{% else %}-{% endif %}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
 </div>
 {% endblock %}

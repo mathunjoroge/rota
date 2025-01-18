@@ -13,6 +13,7 @@ from blueprints.rota import rota_bp
 from blueprints.pdf import pdf_bp
 from blueprints import auth as auth_bp
 
+
 # Load environment variables from .env file
 load_dotenv()
 
@@ -52,6 +53,7 @@ app.register_blueprint(rota_bp)
 app.register_blueprint(pdf_bp)
 app.register_blueprint(temp_bp)
 app.register_blueprint(auth_bp, url_prefix='/')
+
 
 @app.route('/')
 def home():

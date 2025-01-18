@@ -7,17 +7,18 @@ from datetime import datetime
 import os
 import io
 from xhtml2pdf import pisa
+from collections import defaultdict
 
 # Initialize Blueprint
 temp_bp = Blueprint('temp_log', __name__)
 
 # Load configuration from environment
 API_KEY = os.getenv('OPENWEATHERMAP_API_KEY', '6d6bac6176e6352bf13dfee489537206')
-LOCATION = 'kisumu'
+LOCATION = 'kombewa'
 
 def fetch_temperature():
     """Fetch current temperature from the weather API."""
-    url = f'http://api.openweathermap.org/data/2.5/weather?q={LOCATION}&appid={API_KEY}&units=metric'
+    url = f'http://api.openweathermap.org/data/2.5/weather?lat=-0.10345&lon=34.51792&appid={API_KEY}&units=metric'
     response = requests.get(url)
     if response.status_code == 200:
         data = response.json()
@@ -72,7 +73,7 @@ def schedule_tasks(app):
         func=lambda: record_temperature(app, 'PM'),
         trigger='cron',
         hour=14,  # 2:00 PM EAT
-        minute=0 # Run at 2:00pm
+        minute=43  # Run at 2:00pm
     )
     scheduler.add_job(
         id='record_temp_test',
@@ -85,7 +86,8 @@ def schedule_tasks(app):
 @temp_bp.route('/temp_log')
 @login_required
 def temp_log():
-    """Render temperature logs in a template."""
+    """Render temperature logs in a template, grouped by date."""
+    # Query distinct temperature logs
     temperature_logs = db.session.query(
         TemperatureLog.date,
         TemperatureLog.time,
@@ -100,8 +102,14 @@ def temp_log():
         TemperatureLog.date.asc(),
         TemperatureLog.time.asc()
     ).all()
-    
-    return render_template('temp_log.html', temperature_logs=temperature_logs)
+
+    # Group logs by date
+    grouped_logs = defaultdict(lambda: {'AM': None, 'PM': None})
+
+    for log in temperature_logs:
+        grouped_logs[log.date][log.time] = log
+
+    return render_template('temp_log.html', grouped_logs=grouped_logs)
 
 @temp_bp.route('/export_logs', methods=['GET', 'POST'])
 @login_required
@@ -114,8 +122,15 @@ def export_logs():
         if not start_date or not end_date:
             return "Start date and end date are required", 400
 
-        # Query distinct temperature logs
-        logs = db.session.query(
+        # Convert date strings to datetime objects
+        try:
+            start_date = datetime.strptime(start_date, '%Y-%m-%d').date()
+            end_date = datetime.strptime(end_date, '%Y-%m-%d').date()
+        except ValueError:
+            return "Invalid date format. Please use YYYY-MM-DD.", 400
+
+        # Query distinct temperature logs within the given date range
+        temperature_logs = db.session.query(
             TemperatureLog.date,
             TemperatureLog.time,
             TemperatureLog.recorded_temp,
@@ -133,19 +148,25 @@ def export_logs():
             TemperatureLog.time.asc()
         ).all()
 
-        # Retrieve organizational details
+        # Group logs by date and time (AM/PM)
+        grouped_logs = defaultdict(lambda: {'AM': None, 'PM': None})
+
+        for log in temperature_logs:
+            grouped_logs[log.date][log.time] = log
+
+        # Retrieve organizational details for the header
         org_details = OrgDetails.query.all()
 
-        # Render template for PDF
+        # Render the HTML template for PDF generation
         rendered_html = render_template(
             'temp_log_pdf.html',
-            logs=logs,
+            grouped_logs=grouped_logs,
             start_date=start_date,
             end_date=end_date,
             org_details=org_details
         )
 
-        # Generate PDF
+        # Generate the PDF using xhtml2pdf
         pdf = io.BytesIO()
         pisa_status = pisa.CreatePDF(io.StringIO(rendered_html), dest=pdf)
 
@@ -153,6 +174,7 @@ def export_logs():
             return "Error creating PDF", 500
 
         pdf.seek(0)
+        # Return the generated PDF file as an attachment
         return send_file(
             pdf,
             mimetype='application/pdf',
@@ -160,4 +182,6 @@ def export_logs():
             download_name=f'temp_logs_{start_date}_to_{end_date}.pdf'
         )
 
+    # If GET request, just render the temp_log page
     return render_template('temp_log.html')
+
