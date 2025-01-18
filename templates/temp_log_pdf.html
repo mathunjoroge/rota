@@ -48,8 +48,8 @@
                     <td>{{ log.date }}</td>
                     {% if log.time == 'AM' %}
                     <td>8:00 AM</td>
-                    <td>{{ log.recorded_temp }}</td>
-                    <td>{{ log.estimated_room }}</td>
+                    <td>{{ log.recorded_temp }} &deg;C</td>
+                    <td>{{ log.estimated_room }} &deg;C</td>
                     <td>{{ 'Yes' if log.acceptable else 'No' }}</td>
                     <td>{{ log.initials }}</td>
                     <td></td>
@@ -64,8 +64,8 @@
                     <td></td>
                     <td></td>
                     <td>2:00 PM</td>
-                    <td>{{ log.recorded_temp }}</td>
-                    <td>{{ log.estimated_room }}</td>
+                    <td>{{ log.recorded_temp }} &deg;C</td>
+                    <td>{{ log.estimated_room }} &deg;C</td>
                     <td>{{ 'Yes' if log.acceptable else 'No' }}</td>
                     <td>{{ log.initials }}</td>
                     {% endif %}

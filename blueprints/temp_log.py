@@ -97,7 +97,7 @@ def temp_log():
         TemperatureLog.date,
         TemperatureLog.time
     ).order_by(
-        TemperatureLog.date.desc(),
+        TemperatureLog.date.asc(),
         TemperatureLog.time.asc()
     ).all()
     
