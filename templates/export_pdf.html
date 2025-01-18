@@ -15,14 +15,7 @@
     </style>
 </head>
 <body>
-    {% if org_details %}
-        <div class="org-details">
-            {% for org in org_details %}
-                <div><strong>{{ org.name }}</strong></div>
-                <div>{{ org.department }}</div>
-            {% endfor %}
-        </div>
-    {% endif %}
+  {% include "doc_header.html" %}
     <h1>Generated Rota</h1>
     {% if start_date and end_date %}
         <h2>Rota for Period: {{ start_date.strftime('%d/%m/%Y') }} - {{ end_date.strftime('%d/%m/%Y') }}</h2>

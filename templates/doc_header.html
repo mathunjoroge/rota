@@ -1,0 +1,12 @@
+    <div style="text-align: center;">
+        {% if org_details %}
+            <div class="org-details">
+                <img src="{{ url_for('static', filename='images/coat.png', _external=True) }}" alt="Coat of Arms">
+                <h1><strong>Republic of Kenya</strong></h1>
+                <h2><strong>County Government of Kisumu</strong></h2>
+                {% for org in org_details %}
+                    <div><strong>{{ org.name }}</strong></div>
+                    <div><strong>{{ org.department }}</strong></div>
+                {% endfor %}
+            </div>
+        {% endif %}

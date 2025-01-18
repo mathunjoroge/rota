@@ -15,14 +15,7 @@
     </style>
 </head>
 <body>
-    {% if org_details %}
-        <div class="org-details">
-            {% for org in org_details %}
-                <div><strong>{{ org.name }}</strong></div>
-                <div>{{ org.department }}</div>
-            {% endfor %}
-        </div>
-    {% endif %}
+  {% include "doc_header.html" %}
     <h2>Leave Rota</h2>
     <p>Generated on: {{ current_date }}</p>  <!-- Use the current_date from the server -->
 

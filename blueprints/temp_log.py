@@ -71,8 +71,8 @@ def schedule_tasks(app):
         id='record_temp_pm',
         func=lambda: record_temperature(app, 'PM'),
         trigger='cron',
-        hour=21,  # 3:00 PM EAT
-        minute=14 # Run at 15:41
+        hour=14,  # 2:00 PM EAT
+        minute=0 # Run at 2:00pm
     )
     scheduler.add_job(
         id='record_temp_test',
@@ -106,7 +106,7 @@ def temp_log():
 @temp_bp.route('/export_logs', methods=['GET', 'POST'])
 @login_required
 def export_logs():
-    """Export temperature logs between specified dates to PDF."""
+    """Export distinct temperature logs between specified dates to PDF."""
     if request.method == 'POST':
         start_date = request.form.get('start_date')
         end_date = request.form.get('end_date')
@@ -114,7 +114,18 @@ def export_logs():
         if not start_date or not end_date:
             return "Start date and end date are required", 400
 
-        logs = TemperatureLog.query.filter(
+        # Query distinct temperature logs
+        logs = db.session.query(
+            TemperatureLog.date,
+            TemperatureLog.time,
+            TemperatureLog.recorded_temp,
+            TemperatureLog.acceptable,
+            TemperatureLog.initials,
+            TemperatureLog.estimated_room
+        ).distinct(
+            TemperatureLog.date,
+            TemperatureLog.time
+        ).filter(
             TemperatureLog.date >= start_date,
             TemperatureLog.date <= end_date
         ).order_by(
@@ -122,7 +133,10 @@ def export_logs():
             TemperatureLog.time.asc()
         ).all()
 
+        # Retrieve organizational details
         org_details = OrgDetails.query.all()
+
+        # Render template for PDF
         rendered_html = render_template(
             'temp_log_pdf.html',
             logs=logs,
@@ -131,6 +145,7 @@ def export_logs():
             org_details=org_details
         )
 
+        # Generate PDF
         pdf = io.BytesIO()
         pisa_status = pisa.CreatePDF(io.StringIO(rendered_html), dest=pdf)
 
@@ -146,13 +161,3 @@ def export_logs():
         )
 
     return render_template('temp_log.html')
-
-
-@temp_bp.route('/scheduler_status')
-@login_required
-def scheduler_status():
-    """Return the current status of the scheduler."""
-    jobs = current_app.apscheduler.get_jobs()
-    return {
-        "jobs": [{"id": job.id, "next_run": str(job.next_run_time)} for job in jobs]
-    }
