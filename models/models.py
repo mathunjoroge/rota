@@ -50,6 +50,7 @@ class Shift(db.Model):
 
 class Rota(db.Model):
     id = db.Column(db.Integer, primary_key=True)
+    rota_id = db.Column(db.Integer)
     week_range = db.Column(db.String(100), nullable=False)
     shift_8_5 = db.Column(db.String(100), nullable=False)  # 8 AM - 5 PM shift members
     shift_5_8 = db.Column(db.String(50), nullable=False)  # 5 PM - 8 PM shift member

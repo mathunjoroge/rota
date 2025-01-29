@@ -73,7 +73,7 @@ def schedule_tasks(app):
         func=lambda: record_temperature(app, 'PM'),
         trigger='cron',
         hour=14,  # 2:00 PM EAT
-        minute=43  # Run at 2:00pm
+        minute=0  # Run at 2:00pm
     )
     scheduler.add_job(
         id='record_temp_test',

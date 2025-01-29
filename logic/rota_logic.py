@@ -101,7 +101,12 @@ def generate_weekly_rota(
         print("Warning: Less than 2 members available for morning shift.")
 
     # Save the week's rota to the database
+    # Generate a unique rota ID
+    rota_id = random.randint(1000, 9999)
+
+    # Save the week's rota to the database
     week_rota = Rota(
+        rota_id=rota_id,
         week_range=week_range,
         shift_8_5=', '.join(m.name for m in morning_shift_members),
         shift_5_8=evening_shift_member.name,
@@ -111,6 +116,7 @@ def generate_weekly_rota(
 
     # Debugging output for visibility
     print(f"Generated Rota for Week {week_range}:")
+    print(f"rota id: {rota_id}")
     print(f"Morning Shift: {[m.name for m in morning_shift_members]}")
     print(f"Evening Shift: {evening_shift_member.name}")
     print(f"Night Shift: {night_shift_member.name}")
