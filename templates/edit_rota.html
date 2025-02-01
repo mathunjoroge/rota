@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+
+{% block title %}
+    Edit Rota
+{% endblock %}
+
+{% block content %}
+
+    <style>
+      
+        .day-shift-input {
+            width: auto !important;
+            min-width: 600px !important; /* Increase width for day shift column */
+            max-width: auto !important; /* Prevent it from being too wide */
+            display: inline-block;
+        }
+        .week-range{
+            width: auto;
+        }
+     
+    </style>
+
+    <h1>Edit Rota</h1>
+
+    <form method="POST">
+        {{ forms[0].csrf_token }}  <!-- CSRF Token for security -->
+
+        <table class="table table-bordered table-auto">
+            <thead>
+                <tr>
+                    <th>Week Range</th>
+                    <th>Day-shift (8 AM - 5 PM)</th>
+                    <th>Evening shift (5 PM - 8 PM)</th>
+                    <th>Night-shift (8 PM - 8 AM)</th>
+                    <th>Night Off</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for form in forms %}
+                <tr>
+                    {{ form.id(type="hidden") }}  <!-- Hidden ID field -->
+
+                    <td class="auto-fit">{{ form.week_range(class="form-control week-range", readonly=True) }}</td>
+                    <td class="auto-fit">{{ form.shift_8_5(class="form-control day-shift-input") }}</td>
+                    <td class="auto-fit">{{ form.shift_5_8(class="form-control") }}</td>
+                    <td class="auto-fit">{{ form.shift_8_8(class="form-control") }}</td>
+                    <td class="auto-fit">{{ form.night_off(class="form-control") }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <button type="submit" class="btn btn-primary">Update</button>
+    </form>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ category }}">{{ message }}</div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+{% endblock %}

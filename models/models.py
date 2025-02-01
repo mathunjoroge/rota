@@ -49,13 +49,14 @@ class Shift(db.Model):
         return f"<Shift {self.name}>"
 
 class Rota(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    rota_id = db.Column(db.Integer)
-    week_range = db.Column(db.String(100), nullable=False)
-    shift_8_5 = db.Column(db.String(100), nullable=False)  # 8 AM - 5 PM shift members
-    shift_5_8 = db.Column(db.String(50), nullable=False)  # 5 PM - 8 PM shift member
-    shift_8_8 = db.Column(db.String(50), nullable=False)  # 8 PM - 8 AM shift member
-    night_off = db.Column(db.String(50), nullable=True)  # Night off member
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)  # Unique ID
+    rota_id = db.Column(db.Integer, nullable=False)  # Allows duplicates
+    week_range = db.Column(db.String(50), nullable=False, unique=True)  # Each week should be unique
+    shift_8_5 = db.Column(db.String(255), nullable=False)
+    shift_5_8 = db.Column(db.String(255), nullable=False)
+    shift_8_8 = db.Column(db.String(255), nullable=False)
+    night_off = db.Column(db.String(255), nullable=True)
+    date = db.Column(db.Date, default=date.today, nullable=False) 
 
 
 class User(db.Model, UserMixin):

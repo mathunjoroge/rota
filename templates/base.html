@@ -7,74 +7,81 @@
   <link rel="icon" type="image/jpeg" href="{{ url_for('static', filename='images/favicon.ico') }}">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
-</head>
-<body>
-  <style type="text/css">
-    .navbar-nav .nav-item .nav-link:hover {
-      color: #ffe; /* Keep text white on hover */
-      text-decoration: underline;
-      font-size: 20px; 
+  
+  <style>
+    /* Prevent navbar items from wrapping */
+    .navbar-nav {
+      flex-wrap: nowrap;
+      overflow: hidden;
+    }
+    
+    .navbar-nav .nav-item {
+      margin-right: 10px; /* Reduce margin between links */
+    }
+
+    .navbar-brand img {
+      max-height: 80px; /* Reduce logo size */
+      width: auto;
+      margin-left: -10px;
+    }
+
+    .navbar-collapse {
+      flex-wrap: nowrap;
+    }
+
+    .nav-link {
+      padding: 8px 12px; /* Reduce padding */
+      white-space: nowrap;
+    }
+
+    .container-fluid {
+      padding-left: 10px;
+      padding-right: 10px;
+    }
+
+    /* Prevent links from stacking */
+    .navbar-expand-lg .navbar-nav {
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+      gap: 10px;
     }
   </style>
-  <style>
-    .flash-error { color: red; }
-    .flash-info { color: blue; }
-    .flash-success { color: green; }
-    .flash-default { color: black; }
-  </style>
+</head>
+<body>
 
-  <nav class="navbar navbar-expand-lg navbar-dark bg-primary" style="height: 100px;">
+  <nav class="navbar navbar-expand-lg navbar-dark bg-primary" style="height: 80px;">
     <div class="container-fluid">
       <a class="navbar-brand text-white" href="/">
-        <img src="{{ url_for('static', filename='images/magicbanner.jpeg') }}" alt="Magic Rota Logo" class="img-fluid" style="margin-left: -15px;">
+        <img src="{{ url_for('static', filename='images/magicbanner.jpeg') }}" alt="Magic Rota Logo">
       </a>
       <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
         <span class="navbar-toggler-icon"></span>
       </button>
-      <div class="collapse navbar-collapse" id="navbarNav">
-        <ul class="navbar-nav me-auto">
-          <li class="nav-item">
-            <a class="nav-link text-white fs-4" href="/members">Staff</a>
-          </li>
-          <li class="nav-item">
-            <a class="nav-link text-white fs-4" href="/on_leave">Staff on Leave</a>
-          </li>
-          <li class="nav-item">
-            <a class="nav-link text-white fs-4" href="/shifts">Shifts</a>
-          </li>
-          <li class="nav-item">
-            <a class="nav-link text-white fs-4" href="/generate_rota">Rota</a>
-          </li>
-          <li class="nav-item">
-            <a class="nav-link text-white fs-4" href="/org_details">Settings</a>
-          </li>
-
-                    <li class="nav-item">
-            <a class="nav-link text-white fs-4" href="/temp_log">Temperature</a>
-          </li>
-                   
-                    <li class="nav-item">
-            <a class="nav-link text-white fs-4" href="/users">users</a>
-          </li>
+      <div class="collapse navbar-collapse justify-content-between" id="navbarNav">
+        <ul class="navbar-nav">
+          <li class="nav-item"><a class="nav-link text-white fs-5" href="/members">Staff</a></li>
+          <li class="nav-item"><a class="nav-link text-white fs-5" href="/on_leave">Staff On Leave</a></li>
+          <li class="nav-item"><a class="nav-link text-white fs-5" href="/shifts">Shifts</a></li>
+          <li class="nav-item"><a class="nav-link text-white fs-5" href="/generate_rota">Generate Rota</a></li>
+          <li class="nav-item"><a class="nav-link text-white fs-5" href="/rotas">Rotas</a></li>
+          <li class="nav-item"><a class="nav-link text-white fs-5" href="/org_details">Settings</a></li>
+          <li class="nav-item"><a class="nav-link text-white fs-5" href="/temp_log">Temperature</a></li>
+          <li class="nav-item"><a class="nav-link text-white fs-5" href="/users">Users</a></li>
         </ul>
-        <ul class="navbar-nav ms-auto">
-          {% if current_user.is_authenticated %}
 
-          <li class="nav-item">
-            <a class="nav-link text-white fs-4" href="/logout">Logout</a>
-          </li>
+        <ul class="navbar-nav">
+          {% if current_user.is_authenticated %}
+            <li class="nav-item"><a class="nav-link text-white fs-5" href="/logout">Logout</a></li>
           {% else %}
-          <li class="nav-item">
-            <a class="nav-link text-white fs-4" href="/login">Login</a>
-          </li>
-          <li class="nav-item">
-            <a class="nav-link text-white fs-4" href="/register">Register</a>
-          </li>
+            <li class="nav-item"><a class="nav-link text-white fs-5" href="/login">Login</a></li>
+            <li class="nav-item"><a class="nav-link text-white fs-5" href="/register">Register</a></li>
           {% endif %}
         </ul>
       </div>
     </div>
   </nav>
+
   <div class="container mt-4">
     {% block content %}{% endblock %}
   </div>

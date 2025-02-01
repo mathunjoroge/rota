@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+
+{% block title %}
+    Rotas List
+{% endblock %}
+
+{% block content %}
+    <h1>Rotas List</h1>
+
+    {% if rotas %}
+        <table class="table table-striped table-bordered">
+            <thead>
+                <tr>
+                    <th>date generated</th>
+                    <th>Rota ID</th>
+                    <th>Week Range</th>
+                    <th>Actions</th>  </tr>
+            </thead>
+            <tbody>
+                {% for rota in rotas %}
+                    <tr><td>{{ rota.date }}</td>
+                        <td>{{ rota.rota_id }}</td>
+                        <td>{{ rota.week_range }}</td>
+<td>
+    <a href="{{ url_for('rota.rota_detail', rota_id=rota.rota_id) }}">View Details</a> |
+    <a href="{{ url_for('rota.edit_rota', rota_id=rota.rota_id) }}">Edit</a> </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% else %}
+        <p>No rotas found.</p>
+    {% endif %}
+{% endblock %}
