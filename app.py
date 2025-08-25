@@ -20,6 +20,7 @@ load_dotenv()
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('SQLALCHEMY_DATABASE_URI')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app.config['SESSION_COOKIE_PARTITIONED'] = False
 app.secret_key = os.getenv('FLASK_SECRET_KEY')
 
 # Set session timeout to 30 minutes

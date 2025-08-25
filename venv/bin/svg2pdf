@@ -1,4 +1,4 @@
-#!/home/mathu/Desktop/rota/venv/bin/python3
+#!/home/mathu/projects/rota/venv/bin/python3
 """A simple converter from SVG to PDF.
 
 For further information please check the file README.txt!
