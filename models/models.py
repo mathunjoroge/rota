@@ -49,15 +49,29 @@ class Shift(db.Model):
         return f"<Shift {self.name}>"
 
 class Rota(db.Model):
-    id = db.Column(db.Integer, primary_key=True, autoincrement=True)  # Unique ID
-    rota_id = db.Column(db.Integer, nullable=False)  # Allows duplicates
-    week_range = db.Column(db.String(50), nullable=False, unique=True)  # Each week should be unique
+    __tablename__ = 'rotas'
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    rota_id = db.Column(db.Integer, nullable=False)
+    week_range = db.Column(db.String(50), nullable=False, unique=True)
     shift_8_5 = db.Column(db.String(255), nullable=False)
     shift_5_8 = db.Column(db.String(255), nullable=False)
     shift_8_8 = db.Column(db.String(255), nullable=False)
     night_off = db.Column(db.String(255), nullable=True)
-    date = db.Column(db.Date, default=date.today, nullable=False) 
+    date = db.Column(db.Date, default=date.today, nullable=False)
 
+class ShiftHistory(db.Model):
+    __tablename__ = 'shift_history'
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    rota_id = db.Column(db.Integer, nullable=False)
+    member_name = db.Column(db.String(255), nullable=False)
+    shift_type = db.Column(db.String(50), nullable=False)
+    week_range = db.Column(db.String(50), nullable=False)
+class MemberShiftState(db.Model):
+    __tablename__ = 'member_shift_states'
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    rota_id = db.Column(db.Integer, nullable=False)
+    member_name = db.Column(db.String(255), nullable=False)
+    shift_index = db.Column(db.Integer, nullable=False)    
 
 class User(db.Model, UserMixin):
     id = db.Column(db.Integer, primary_key=True)
