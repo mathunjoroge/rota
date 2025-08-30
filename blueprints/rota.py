@@ -41,7 +41,7 @@ def generate_rota():
                     start_date=start_date,
                     period_weeks=period_weeks,
                     week_duration_days=7,
-                
+                    reset_history_after_weeks=6,
                     use_db_for_history=True,
                     first_night_off_member=first_night_off_member
                 )
