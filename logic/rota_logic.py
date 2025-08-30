@@ -25,13 +25,14 @@ SHIFT_CYCLE = ['morning', 'night', 'night_off', 'morning', 'evening', 'morning']
 CYCLE_LEN = len(SHIFT_CYCLE)
 
 
+import random
+
 def generate_unique_rota_id():
     """
-    Generates a single, static rota ID for the entire generation period.
-    In a real-world, multi-tenant application, this would likely be a UUID or
-    a value from a database sequence to ensure true uniqueness.
+    Generates a unique 10-digit rota ID.
     """
-    return 2342
+    return random.randint(10**9, 10**10 - 1)
+
 
 
 def split_admins(members):
