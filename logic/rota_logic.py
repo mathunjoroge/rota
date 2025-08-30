@@ -118,37 +118,37 @@ def seed_initial_states_if_missing(rota_id, non_admins, first_night_off_member=N
 
     member_shift_states = {}
     assigned_indices = set()
+    index_usage = {i: 0 for i in range(CYCLE_LEN)}  # CYCLE_LEN = 6
 
-    # Priority 1: Assign the designated first night-off member if provided.
+    # Assign first night_off member.
     if first_night_off_member:
         if first_night_off_member.is_admin == 3:
             raise ValueError(f"Member {first_night_off_member.name} is night-exempt and cannot be assigned 'night_off'.")
         logger.info(f"Assigning {first_night_off_member.name} as the first night_off.")
-        night_off_index = 2  # Index of 'night_off' in the base cycle
+        night_off_index = 2
         member_shift_states[first_night_off_member.name] = night_off_index
         assigned_indices.add(night_off_index)
+        index_usage[night_off_index] += 1
 
-    # Sort remaining members by name to ensure deterministic assignment order.
+    # Sort remaining members.
     remaining_members = sorted([m for m in non_admins if m.name not in member_shift_states], key=lambda m: m.name)
     logger.info(f"Remaining members: {[m.name for m in remaining_members]}")
     
-    # Assign indices, allowing reuse if necessary
-    current_index = 0
-    for member in remaining_members:
-        logger.info(f"Processing {member.name}, current_index: {current_index}")
-        start_index = current_index
-        while current_index in assigned_indices and len(assigned_indices) < CYCLE_LEN:
+    # Assign indices, spreading them evenly.
+    for i, member in enumerate(remaining_members):
+        current_index = i % CYCLE_LEN  # Cycle through 0–5 to spread indices
+        while current_index in assigned_indices and index_usage[current_index] >= 2:
             current_index = (current_index + 1) % CYCLE_LEN
         member_shift_states[member.name] = current_index
         assigned_indices.add(current_index)
+        index_usage[current_index] += 1
         logger.info(f"Assigned {member.name} to index {current_index}")
 
-    # Persist the seeded states to the database for record-keeping.
+    # Persist states.
     logger.info("Persisting shift states to database")
     for member_name, shift_index in member_shift_states.items():
         logger.info(f"Adding state for {member_name}: shift_index={shift_index}")
         db.session.add(MemberShiftState(rota_id=rota_id, member_name=member_name, shift_index=shift_index))
-    logger.info("Committing shift states")
     db.session.commit()
     logger.info("Commit successful")
     logger.info("Finished seeding initial states.")
@@ -205,38 +205,49 @@ def _generate_weekly_rota(eligible_members, current_date, last_night_shift_membe
             assignments['night_off'] = last_night_shift_member
             available.remove(last_night_shift_member)
 
-    # Rule 2: Build candidate pools based on each member's cycle preference.
+    # Rule 2: Build candidate pools, enforcing morning after evening/night_off.
     pools = {'morning': [], 'evening': [], 'night': [], 'night_off': []}
     for m in available:
         state = member_shift_states[m.name]
         preferred_shift = state['cycle'][state['idx']]
+        if 'last_shift' in state and state['last_shift'] in ['evening', 'night_off'] and preferred_shift != 'morning':
+            logger.info(f"Forcing {m.name} to morning due to {state['last_shift']} last week")
+            preferred_shift = 'morning'
         pools[preferred_shift].append(m)
 
-    # Helper for Rule 3 & 4: Pick the best candidate based on lowest shift count, respecting exemptions.
+    # Helper: Pick the best candidate, capping special shifts at 3.
     def pick_best(candidates, shift_type):
         if not candidates:
             return None
         # Filter candidates based on exemptions
         if shift_type == 'evening':
-            candidates = [m for m in candidates if m.is_admin != 2]  # Exclude evening-exempt
+            candidates = [m for m in candidates if m.is_admin != 2]
         elif shift_type == 'night':
-            candidates = [m for m in candidates if m.is_admin != 3]  # Exclude night-exempt
+            candidates = [m for m in candidates if m.is_admin != 3]
         elif shift_type == 'night_off':
-            candidates = [m for m in candidates if m.is_admin != 3]  # Exclude night-exempt
+            candidates = [m for m in candidates if m.is_admin != 3]
         if not candidates:
             return None
-        # Sort by count, then by name for deterministic tie-breaking.
-        return sorted(candidates, key=lambda m: (member_shift_states[m.name]['counts'][shift_type], m.name))[0]
+        # Exclude members with 3 or more of this shift type
+        candidates = [m for m in candidates if member_shift_states[m.name]['counts'][shift_type] < 3]
+        if not candidates:
+            return None
+        # Prefer members with fewer shifts of this type, then total special shifts
+        return sorted(candidates, key=lambda m: (
+            member_shift_states[m.name]['counts'][shift_type],  # Prefer 0 or 1 shifts
+            sum(member_shift_states[m.name]['counts'][s] for s in ['evening', 'night', 'night_off']),
+            m.name
+        ))[0]
 
     # Sequentially fill remaining special shifts.
     for shift in ['night_off', 'evening', 'night']:
         if assignments[shift]:
-            continue  # Skip if already filled by hard constraint.
+            continue
 
-        # Try to assign from members who are naturally due for this shift.
+        # Try to assign from members due for this shift.
         candidate = pick_best(pools[shift], shift)
         
-        # If no one is due, borrow fairly from the 'morning' pool, respecting exemptions.
+        # If no one is due, borrow from morning pool.
         if not candidate:
             candidate = pick_best(pools['morning'], shift)
             if candidate:
@@ -246,29 +257,32 @@ def _generate_weekly_rota(eligible_members, current_date, last_night_shift_membe
             logger.info(f"Assigning {candidate.name} to {shift}.")
             assignments[shift] = candidate
             available.remove(candidate)
-            # Remove the assigned member from whichever pool they were in.
             for pool in pools.values():
                 if candidate in pool:
                     pool.remove(candidate)
                     break
     
-    # All remaining non-admins and all admins are assigned to the morning shift.
+    # All remaining non-admins and admins are assigned to morning.
     final_morning_members = [m.name for m in admins] + [m.name for m in available]
 
-    # Update counts and advance cycle index for every non-admin for the next week.
+    # Update counts, last shift, and cycle index.
     for member in non_admins:
         state = member_shift_states[member.name]
         if member == assignments['evening']:
             state['counts']['evening'] += 1
+            state['last_shift'] = 'evening'
         elif member == assignments['night']:
             state['counts']['night'] += 1
+            state['last_shift'] = 'night'
         elif member == assignments['night_off']:
             state['counts']['night_off'] += 1
+            state['last_shift'] = 'night_off'
         else:
             state['counts']['morning'] += 1
+            state['last_shift'] = 'morning'
         state['idx'] = (state['idx'] + 1) % len(state['cycle'])
 
-    # Create and save the Rota entry for this week.
+    # Save the rota entry.
     new_rota = Rota(
         rota_id=rota_id, date=week_start, week_range=week_range,
         shift_8_5=', '.join(sorted(final_morning_members)),
@@ -281,29 +295,10 @@ def _generate_weekly_rota(eligible_members, current_date, last_night_shift_membe
 
     return assignments['night'], assignments['evening']
 
-
 def generate_period_rota(eligible_members, start_date, period_weeks, week_duration_days=7, reset_history_after_weeks=6, use_db_for_history=True, first_night_off_member=None):
-    """
-    Generates a complete, multi-week rota. This function serves as a compatible
-    wrapper that orchestrates the weekly generation process for the Flask blueprint.
-
-    Args:
-        eligible_members (list[Team]): The full list of members for the rota period.
-        start_date (date): The starting date of the rota.
-        period_weeks (int): The number of weeks to generate.
-        week_duration_days (int): The number of days in a rota week (usually 7).
-        reset_history_after_weeks (int): (Compatibility arg, not used in new logic).
-        use_db_for_history (bool): (Compatibility arg, not used in new logic).
-        first_night_off_member (Team, optional): Member to have the first 'night_off'.
-
-    Returns:
-        tuple[list, int]: A tuple containing an empty list (for compatibility)
-                          and the generated rota_id.
-    """
     logger.info(f"Starting rota generation for {period_weeks} weeks from {start_date}.")
     rota_id = generate_unique_rota_id()
     
-    # Clean up any previous data for this specific rota ID to prevent conflicts.
     db.session.query(Rota).filter(Rota.rota_id == rota_id).delete()
     db.session.query(MemberShiftState).filter(MemberShiftState.rota_id == rota_id).delete()
     db.session.commit()
@@ -311,27 +306,26 @@ def generate_period_rota(eligible_members, start_date, period_weeks, week_durati
     admins, non_admins = split_admins(eligible_members)
     last_night_shift_member = None
     
-    # 1. Deterministically seed the initial state for each member's cycle.
+    # Seed initial states.
     simple_states = seed_initial_states_if_missing(rota_id, non_admins, first_night_off_member)
     
-    # 2. Build the main state dictionary to track counts and cycle positions.
+    # Build state dictionary with last_shift.
     member_shift_states = {
         m.name: {
             'idx': simple_states.get(m.name, 0),
             'cycle': get_member_cycle(m),
-            'counts': {'morning': 0, 'evening': 0, 'night': 0, 'night_off': 0}
+            'counts': {'morning': 0, 'evening': 0, 'night': 0, 'night_off': 0},
+            'last_shift': 'morning'
         } for m in non_admins
     }
     
-    # 3. Loop through each week and generate the rota.
+    # Generate rota for each week.
     for week in range(period_weeks):
         current_date = start_date + timedelta(days=week * week_duration_days)
         week_end_date = current_date + timedelta(days=week_duration_days - 1)
         
-        # Filter for members available to work during this specific week.
         week_eligible_members = filter_eligible_members(eligible_members, current_date, week_end_date)
         
-        # Generate the weekly rota and get the member who worked the night shift.
         night_member, _ = _generate_weekly_rota(
             eligible_members=week_eligible_members,
             current_date=current_date,
@@ -341,10 +335,8 @@ def generate_period_rota(eligible_members, start_date, period_weeks, week_durati
             week_duration_days=week_duration_days,
         )
         
-        # This member will be assigned 'night_off' in the next iteration.
         last_night_shift_member = night_member
 
     logger.info(f"Successfully generated Rota ID: {rota_id}.")
-    # Return values in the format expected by the rota.py blueprint.
     return [], rota_id
 
