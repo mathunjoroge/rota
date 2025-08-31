@@ -12,28 +12,35 @@ the unpredictability of random assignment.
 """
 
 import logging
+import random
 from datetime import date, timedelta
+from tabulate import tabulate
+from colorama import init, Fore, Style
 from models.models import db, Rota, Team, MemberShiftState, Leave
 
 # Configure logging for this module
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# Initialize colorama for cross-platform colored output
+init(autoreset=True)
+
 # Base deterministic cycle for a standard member's shift rotation.
 # This predictable pattern is the foundation of the fair rota.
 SHIFT_CYCLE = ['morning', 'night', 'night_off', 'morning', 'evening', 'morning']
 CYCLE_LEN = len(SHIFT_CYCLE)
 
-
-import random
-
 def generate_unique_rota_id():
     """
-    Generates a unique 10-digit rota ID.
+    Generates a unique 10-digit rota ID, ensuring it doesn't exist in the database.
+
+    Returns:
+        int: A unique 10-digit rota ID.
     """
-    return random.randint(10**9, 10**10 - 1)
-
-
+    while True:
+        rota_id = random.randint(10**9, 10**10 - 1)
+        if not db.session.query(Rota).filter_by(rota_id=rota_id).first():
+            return rota_id
 
 def split_admins(members):
     """
@@ -56,7 +63,6 @@ def split_admins(members):
         raise ValueError("No admin user found. At least one admin (is_admin=1) is required.")
     return admins, non_admins
 
-
 def get_member_cycle(member):
     """
     Returns a member's specific shift cycle based on their exemptions.
@@ -74,7 +80,6 @@ def get_member_cycle(member):
         return ['morning', 'evening', 'morning', 'morning', 'morning', 'evening']
     # Default cycle for standard members
     return SHIFT_CYCLE
-
 
 def calculate_expected_shifts(member, period_weeks, evening_eligible_count, night_eligible_count):
     """
@@ -106,8 +111,21 @@ def calculate_expected_shifts(member, period_weeks, evening_eligible_count, nigh
     # Standard non-admin member
     return {'morning': period_weeks - (expected_evening + expected_night + expected_night_off), 'evening': expected_evening, 'night': expected_night, 'night_off': expected_night_off}
 
-
 def seed_initial_states_if_missing(rota_id, non_admins, first_night_off_member=None):
+    """
+    Seeds initial shift states for non-admin members in the database.
+
+    Args:
+        rota_id (int): The unique ID of the rota.
+        non_admins (list[Team]): List of non-admin Team member objects.
+        first_night_off_member (Team, optional): Member to assign the first night_off shift.
+
+    Returns:
+        dict: A dictionary mapping member names to their initial shift indices.
+
+    Raises:
+        ValueError: If fewer than 3 non-admin members or if first_night_off_member is night-exempt.
+    """
     logger.info(f"Seeding initial shift states for Rota ID: {rota_id}.")
     db.session.query(MemberShiftState).filter_by(rota_id=rota_id).delete()
     logger.info("Deleted existing shift states")
@@ -155,7 +173,6 @@ def seed_initial_states_if_missing(rota_id, non_admins, first_night_off_member=N
     logger.info("Finished seeding initial states.")
     return member_shift_states
 
-
 def filter_eligible_members(members, week_start_date, week_end_date):
     """
     Filters out members who are on leave for any part of the given week.
@@ -183,8 +200,21 @@ def filter_eligible_members(members, week_start_date, week_end_date):
             
     return eligible
 
-
 def _generate_weekly_rota(eligible_members, current_date, last_night_shift_member, rota_id, member_shift_states, week_duration_days=7):
+    """
+    Generates a single week's rota, enforcing shift constraints and updating states.
+
+    Args:
+        eligible_members (list[Team]): Members eligible for the week.
+        current_date (date): The start date of the week.
+        last_night_shift_member (Team): Member who worked the night shift last week.
+        rota_id (int): The unique ID of the rota.
+        member_shift_states (dict): Current shift states for non-admin members.
+        week_duration_days (int): Number of days in a week (default: 7).
+
+    Returns:
+        tuple[Team, Team]: The members assigned to night and evening shifts.
+    """
     week_start = current_date
     week_end = current_date + timedelta(days=week_duration_days - 1)
     week_range = f"{week_start.strftime('%Y-%m-%d')} - {week_end.strftime('%Y-%m-%d')}"
@@ -296,7 +326,63 @@ def _generate_weekly_rota(eligible_members, current_date, last_night_shift_membe
 
     return assignments['night'], assignments['evening']
 
+def display_rota_table(rota_id):
+    """
+    Displays the rota for a given rota_id in a tabulated format in the console with colored output.
+
+    Args:
+        rota_id (int): The unique ID of the rota to display.
+    """
+    logger.info(f"Displaying rota table for Rota ID: {rota_id}")
+    
+    # Query all rota entries for the given rota_id
+    rota_entries = db.session.query(Rota).filter_by(rota_id=rota_id).order_by(Rota.date).all()
+    
+    if not rota_entries:
+        logger.warning(f"No rota entries found for Rota ID: {rota_id}")
+        print(f"{Fore.RED}No rota entries found for Rota ID: {rota_id}{Style.RESET_ALL}")
+        return
+    
+    # Prepare table data
+    table_data = []
+    headers = [
+        f"{Fore.CYAN}Week Range{Style.RESET_ALL}",
+        f"{Fore.GREEN}Morning (8-5){Style.RESET_ALL}",
+        f"{Fore.YELLOW}Evening (5-8){Style.RESET_ALL}",
+        f"{Fore.MAGENTA}Night (8-8){Style.RESET_ALL}",
+        f"{Fore.BLUE}Night Off{Style.RESET_ALL}"
+    ]
+    
+    for entry in rota_entries:
+        table_data.append([
+            entry.week_range,
+            f"{Fore.GREEN}{entry.shift_8_5}{Style.RESET_ALL}",
+            f"{Fore.YELLOW}{entry.shift_5_8 or '-'}{Style.RESET_ALL}",
+            f"{Fore.MAGENTA}{entry.shift_8_8 or '-'}{Style.RESET_ALL}",
+            f"{Fore.BLUE}{entry.night_off or '-'}{Style.RESET_ALL}"
+        ])
+    
+    # Print the table using tabulate
+    print(f"\n{Fore.CYAN}Rota ID: {rota_id}{Style.RESET_ALL}")
+    print(tabulate(table_data, headers=headers, tablefmt="fancy_grid"))
+    logger.info(f"Displayed rota table for Rota ID: {rota_id}")
+
 def generate_period_rota(eligible_members, start_date, period_weeks, week_duration_days=7, reset_history_after_weeks=6, use_db_for_history=True, first_night_off_member=None):
+    """
+    Generates a rota for a specified period, storing it in the database and displaying it as a colored table.
+
+    Args:
+        eligible_members (list[Team]): List of eligible Team member objects.
+        start_date (date): The start date of the rota.
+        period_weeks (int): Number of weeks to generate the rota for.
+        week_duration_days (int): Number of days in a week (default: 7).
+        reset_history_after_weeks (int): Weeks after which to reset shift history (default: 6).
+        use_db_for_history (bool): Whether to use the database for shift history (default: True).
+        first_night_off_member (Team, optional): Member to assign the first night_off shift.
+
+    Returns:
+        tuple[list, int]: An empty list (for compatibility) and the generated rota_id.
+    """
     logger.info(f"Starting rota generation for {period_weeks} weeks from {start_date}.")
     rota_id = generate_unique_rota_id()
     
@@ -339,5 +425,8 @@ def generate_period_rota(eligible_members, start_date, period_weeks, week_durati
         last_night_shift_member = night_member
 
     logger.info(f"Successfully generated Rota ID: {rota_id}.")
+    
+    # Display the generated rota as a colored table
+    display_rota_table(rota_id)
+    
     return [], rota_id
-
