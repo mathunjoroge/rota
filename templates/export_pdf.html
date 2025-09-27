@@ -34,10 +34,10 @@
             {% for rota in rotas %}
                 <tr>
                     <td>{{ rota.week_range }}</td>
-                    <td>{{ rota.shift_8_5 }}</td>
-                    <td>{{ rota.shift_5_8 }}</td>
-                    <td>{{ rota.shift_8_8 }}</td>
-                    <td>{{ rota.night_off }}</td>
+                    <td>{{ rota.shift_8_5|title }}</td>
+                    <td>{{ rota.shift_5_8|title }}</td>
+                    <td>{{ rota.shift_8_8|title }}</td>
+                    <td>{{ rota.night_off|title }}</td>
                 </tr>
             {% endfor %}
         </tbody>

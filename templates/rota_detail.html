@@ -5,6 +5,14 @@
 {% endblock %}
 
 {% block content %}
+<style>
+    .body{
+        text-transform: capitalize;
+    }
+        .td{
+        text-transform: capitalize;
+    }
+</style>
     {% with messages = get_flashed_messages(with_categories=true) %}
   {% if messages %}
     <div class="alert-container">
@@ -36,12 +44,12 @@
                         <td>{{ rota.week_range }}</td>
                         <td>
                             {% for member in rota.shift_8_5.split(',') %}
-                                {{ member.strip() }}{% if not loop.last %}, {% endif %}
+                                {{ member.strip()|title }} {% if not loop.last %}, {% endif %}
                             {% endfor %}
                         </td>
-                        <td>{{ rota.shift_5_8 }}</td>
-                        <td>{{ rota.shift_8_8 }}</td>
-                        <td>{{ rota.night_off }}</td>
+                        <td>{{ rota.shift_5_8|title }}</td>
+                        <td>{{ rota.shift_8_8|title }}</td>
+                        <td>{{ rota.night_off|title }}</td>
                     </tr>
                 {% endfor %}
             </tbody>

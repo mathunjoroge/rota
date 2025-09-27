@@ -17,8 +17,7 @@
 <body>
   {% include "doc_header.html" %}
     <h2>Leave Rota</h2>
-    <p>Generated on: {{ current_date }}</p>  <!-- Use the current_date from the server -->
-
+    <p>Generated on: {{ current_date }}</p>  
     {% if leaves %}
     <table>
         <thead>
@@ -32,10 +31,10 @@
         <tbody>
             {% for leave in leaves %}
             <tr>
-                <td>{{ leave.member.name if leave.member else "Unknown Member" }}</td>
+                <td>{{ leave.member.name|title if leave.member else "Unknown Member" }}</td>
                 <td>{{ leave.start_date.strftime('%d/%m/%Y') if leave.start_date else "N/A" }}</td>
                 <td>{{ leave.end_date.strftime('%d/%m/%Y') if leave.end_date else "N/A" }}</td>
-                <td>{{ leave.days_taken() }}</td>
+                <td>**{{ count_weekdays(leave.start_date, leave.end_date) }}**</td>
             </tr>
             {% endfor %}
         </tbody>

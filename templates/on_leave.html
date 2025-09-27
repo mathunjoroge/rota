@@ -6,12 +6,10 @@
 <div class="container mt-4">
     <h1 class="mb-4">Members on Leave</h1>
 
-    <!-- Export PDF Button -->
     <div class="mb-3">
         <a href="{{ url_for('pdf.leave_rota_pdf') }}" class="btn btn-primary">Export as PDF</a>
     </div>
     
-    <!-- Flash Messages -->
     {% with messages = get_flashed_messages(with_categories=true) %}
       {% if messages %}
         <div class="alert-container">
@@ -40,17 +38,15 @@
         <tbody>
             {% for leave_info in leaves_info %}
             <tr>
-                <td>{{ leave_info.leave.member.name }}</td>
+                <td>**{{ leave_info.leave.member.name|title }}**</td>
                 <td>{{ leave_info.leave.start_date }}</td>
                 <td>{{ leave_info.leave.end_date }}</td>
                 <td>{{ leave_info.days_taken }}</td>
                 <td>{{ leave_info.days_remaining }}</td>
                 <td>
-                    <!-- Edit Leave Button -->
                     <button class="btn btn-warning btn-sm" data-bs-toggle="modal" 
                             data-bs-target="#editLeaveModal{{ leave_info.leave.id }}">Edit</button>
 
-                    <!-- Delete Leave Form -->
                     <form action="{{ url_for('leave.delete_leave', leave_id=leave_info.leave.id) }}" method="POST" style="display:inline-block;">
                         <input type="hidden" name="_method" value="DELETE">
                         <button type="submit" class="btn btn-danger btn-sm">Delete</button>
@@ -58,13 +54,12 @@
                 </td>
             </tr>
 
-            <!-- Modal for each leave -->
             <div class="modal fade" id="editLeaveModal{{ leave_info.leave.id }}" tabindex="-1" 
                  aria-labelledby="editLeaveModalLabel{{ leave_info.leave.id }}" aria-hidden="true">
                 <div class="modal-dialog">
                     <div class="modal-content">
                         <div class="modal-header">
-                            <h5 class="modal-title" id="editLeaveModalLabel{{ leave_info.leave.id }}">Edit Leave for {{ leave_info.leave.member.name }}</h5>
+                            <h5 class="modal-title" id="editLeaveModalLabel{{ leave_info.leave.id }}">Edit Leave for **{{ leave_info.leave.member.name|title }}**</h5>
                             <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                         </div>
                         <form method="POST" action="{{ url_for('leave.edit_leave', leave_id=leave_info.leave.id) }}">

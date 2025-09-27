@@ -2,13 +2,9 @@
 """
 rota_logic.py
 
-This module contains the core business logic for generating a fair, deterministic,
-and balanced weekly staff rota. It is designed to handle various constraints,
-including member-specific shift exemptions and mandatory rest periods (night_off).
-
-The generation is deterministic, meaning for the same set of inputs (members,
-start date, exemptions), it will always produce the exact same rota, eliminating
-the unpredictability of random assignment.
+This module contains the core business logic for generating a weekly staff rota.
+It includes a deterministic method for predictable rotas and an optimization-based
+method using PuLP for dynamically fair shift distribution.
 """
 
 import logging
@@ -16,6 +12,7 @@ import random
 from datetime import date, timedelta
 from tabulate import tabulate
 from colorama import init, Fore, Style
+import pulp  # Added PuLP import for optimization
 from models.models import db, Rota, Team, MemberShiftState, Leave
 
 # Configure logging for this module
@@ -26,9 +23,202 @@ logger = logging.getLogger(__name__)
 init(autoreset=True)
 
 # Base deterministic cycle for a standard member's shift rotation.
-# This predictable pattern is the foundation of the fair rota.
 SHIFT_CYCLE = ['morning', 'night', 'night_off', 'morning', 'evening', 'morning']
 CYCLE_LEN = len(SHIFT_CYCLE)
+
+
+# ############################################################################
+# NEW RotaOptimizer CLASS USING PuLP
+# ############################################################################
+
+class RotaOptimizer:
+    """
+    Generates a fair rota by using linear optimization (PuLP) to distribute
+    special shifts ('evening', 'night') as evenly as possible among eligible
+    members over a given period.
+    """
+    def __init__(self, start_date, period_weeks):
+        """
+        Initializes the RotaOptimizer.
+
+        Args:
+            start_date (date): The start date of the rota period.
+            period_weeks (int): The number of weeks to generate.
+        """
+        self.start_date = start_date
+        self.period_weeks = period_weeks
+        self.week_duration_days = 7
+        self.rota_id = generate_unique_rota_id()
+        self.all_members = db.session.query(Team).all()
+
+        # Clean up any previous entries for this new rota ID
+        db.session.query(Rota).filter(Rota.rota_id == self.rota_id).delete()
+        db.session.commit()
+
+    def _filter_eligible_members(self, members, week_start_date):
+        """Filters out members on leave for the given week."""
+        week_end_date = week_start_date + timedelta(days=self.week_duration_days - 1)
+        eligible = []
+        for member in members:
+            on_leave = db.session.query(Leave).filter(
+                Leave.member_id == member.id,
+                Leave.start_date <= week_end_date,
+                Leave.end_date >= week_start_date
+            ).first()
+
+            if not on_leave:
+                eligible.append(member)
+            else:
+                logger.info(f"Filtering out {member.name} due to leave from {on_leave.start_date} to {on_leave.end_date}.")
+        return eligible
+
+    def _solve_weekly_assignment(self, non_admins, last_night_member_name, shift_history):
+        """
+        Solves the shift assignment for a single week using PuLP.
+
+        Args:
+            non_admins (list[Team]): List of non-admin members eligible for the week.
+            last_night_member_name (str): Name of the member who worked night shift last week.
+            shift_history (dict): A dict tracking counts of special shifts per member.
+
+        Returns:
+            dict: A dictionary with the shift assignments for the week or an error.
+        """
+        prob = pulp.LpProblem("Weekly_Fair_Rota", pulp.LpMinimize)
+
+        # 1. Determine mandatory 'night_off' member
+        night_off_member = next((m for m in non_admins if m.name == last_night_member_name), None)
+        
+        # 2. Define the pool of members available for shifts
+        available_for_assignment = [m for m in non_admins if m != night_off_member]
+
+        if len(available_for_assignment) < 2:
+            return {"error": f"Not enough members ({len(available_for_assignment)}) available to cover evening and night shifts."}
+
+        shifts_to_assign = ['evening', 'night']
+        
+        # 3. Define Decision Variables
+        # x[member.name][shift] is 1 if member is assigned, 0 otherwise
+        x = pulp.LpVariable.dicts("assignment",
+                                  ((m.name for m in available_for_assignment), shifts_to_assign),
+                                  cat='Binary')
+
+        # 4. Define Objective Function: Fairness
+        # We want to assign special shifts to members who have done them the least.
+        # The objective is to minimize the total historical shift count of the members chosen.
+        prob += pulp.lpSum([
+            (shift_history[m.name]['evening'] + shift_history[m.name]['night']) * x[m.name][s]
+            for m in available_for_assignment for s in shifts_to_assign
+        ]), "Fairness_Objective"
+
+        # 5. Define Constraints
+        # Constraint 1: Each special shift must be covered by exactly one person.
+        for s in shifts_to_assign:
+            prob += pulp.lpSum([x[m.name][s] for m in available_for_assignment]) == 1, f"Cover_{s}_Shift"
+
+        # Constraint 2: Each member can be assigned at most one special shift.
+        for m in available_for_assignment:
+            prob += pulp.lpSum([x[m.name][s] for s in shifts_to_assign]) <= 1, f"One_Special_Shift_for_{m.name}"
+
+        # Constraint 3: Handle exemptions from member profiles.
+        for m in available_for_assignment:
+            if m.is_admin == 2:  # Evening exempt
+                prob += x[m.name]['evening'] == 0, f"Exempt_Evening_{m.name}"
+            if m.is_admin == 3:  # Night and Night Off exempt
+                prob += x[m.name]['night'] == 0, f"Exempt_Night_{m.name}"
+        
+        # 6. Solve the problem
+        prob.solve(pulp.PULP_CBC_CMD(msg=0)) # msg=0 suppresses solver output
+
+        # 7. Extract and return the results
+        if pulp.LpStatus[prob.status] == "Optimal":
+            assignments = {
+                'evening': None, 'night': None, 'morning': [],
+                'night_off': night_off_member.name if night_off_member else None
+            }
+            assigned_special = set()
+
+            for m in available_for_assignment:
+                for s in shifts_to_assign:
+                    if pulp.value(x[m.name][s]) == 1:
+                        assignments[s] = m.name
+                        assigned_special.add(m.name)
+            
+            assignments['morning'] = sorted([m.name for m in available_for_assignment if m.name not in assigned_special])
+            return assignments
+        else:
+            return {"error": f"Could not find an optimal solution. Status: {pulp.LpStatus[prob.status]}"}
+
+    def generate_rota(self):
+        """
+        Main method to generate the full rota for the specified period. It iterates
+        week by week, solving for the fairest assignment at each step.
+        
+        Returns:
+            tuple[list, int]: An empty list and the generated rota_id, or -1 on failure.
+        """
+        logger.info(f"Starting optimized rota generation with PuLP for Rota ID: {self.rota_id}")
+
+        admins, non_admins = split_admins(self.all_members)
+        shift_history = {m.name: {'evening': 0, 'night': 0} for m in non_admins}
+        last_night_shift_member_name = None # Start with no one having worked the last night shift
+
+        for week in range(self.period_weeks):
+            current_date = self.start_date + timedelta(days=week * self.week_duration_days)
+            week_eligible_members = self._filter_eligible_members(self.all_members, current_date)
+            
+            if not week_eligible_members:
+                logger.warning(f"No eligible members for week starting {current_date}. Skipping.")
+                continue
+
+            week_admins, week_non_admins = split_admins(week_eligible_members)
+
+            # Solve for this week's assignments using PuLP
+            assignments = self._solve_weekly_assignment(
+                week_non_admins,
+                last_night_shift_member_name,
+                shift_history
+            )
+
+            if not assignments or "error" in assignments:
+                 logger.error(f"Optimization failed for week {current_date}: {assignments.get('error', 'Unknown error')}")
+                 print(f"{Fore.RED}Could not generate rota for week {current_date}. Aborting.{Style.RESET_ALL}")
+                 return [], -1
+            
+            # Update history and track who worked the night shift for next week's 'night_off'
+            if assignments['evening']:
+                shift_history[assignments['evening']]['evening'] += 1
+            if assignments['night']:
+                shift_history[assignments['night']]['night'] += 1
+                last_night_shift_member_name = assignments['night']
+            else:
+                last_night_shift_member_name = None
+
+            # Combine morning shift members (admins + unassigned non-admins)
+            morning_members = sorted(
+                [m.name for m in week_admins] + assignments['morning']
+            )
+            
+            # Save the weekly result to the database
+            week_range = f"{current_date.strftime('%Y-%m-%d')} - {(current_date + timedelta(days=6)).strftime('%Y-%m-%d')}"
+            new_rota = Rota(
+                rota_id=self.rota_id, date=current_date, week_range=week_range,
+                shift_8_5=', '.join(morning_members),
+                shift_5_8=assignments['evening'] or '',
+                shift_8_8=assignments['night'] or '',
+                night_off=assignments['night_off'] or ''
+            )
+            db.session.add(new_rota)
+            db.session.commit()
+        
+        logger.info(f"Successfully generated optimized Rota ID: {self.rota_id}.")
+        display_rota_table(self.rota_id)
+        return [], self.rota_id
+
+
+# ############################################################################
+# ORIGINAL DETERMINISTIC LOGIC (UNCHANGED)
+# ############################################################################
 
 def generate_unique_rota_id():
     """
@@ -136,34 +326,33 @@ def seed_initial_states_if_missing(rota_id, non_admins, first_night_off_member=N
         raise ValueError(f"Rota generation requires at least 3 non-admin members, but found {len(non_admins)}.")
 
     member_shift_states = {}
-    assigned_indices = set()
-    index_usage = {i: 0 for i in range(CYCLE_LEN)}  # CYCLE_LEN = 6
+    night_off_index = 2 # This is the fixed index for 'night_off' in the SHIFT_CYCLE
 
-    # Assign first night_off member.
+    # Assign the specified first night_off member and protect their index.
     if first_night_off_member:
         if first_night_off_member.is_admin == 3:
             raise ValueError(f"Member {first_night_off_member.name} is night-exempt and cannot be assigned 'night_off'.")
         logger.info(f"Assigning {first_night_off_member.name} as the first night_off.")
-        night_off_index = 2
         member_shift_states[first_night_off_member.name] = night_off_index
-        assigned_indices.add(night_off_index)
-        index_usage[night_off_index] += 1
 
-    # Sort remaining members.
+    # Sort the remaining members to ensure deterministic assignment.
     remaining_members = sorted([m for m in non_admins if m.name not in member_shift_states], key=lambda m: m.name)
     logger.info(f"Remaining members: {[m.name for m in remaining_members]}")
     
-    # Assign indices, spreading them evenly.
+    # Create a list of indices available for the rest of the team, excluding the protected one.
+    available_indices = [i for i in range(CYCLE_LEN) if i != night_off_index]
+    
+    # Assign the remaining members by cycling ONLY through the available indices.
+    if not available_indices:
+         raise ValueError("Cannot assign remaining members as no indices are available.")
+
     for i, member in enumerate(remaining_members):
-        current_index = i % CYCLE_LEN  # Cycle through 0–5 to spread indices
-        while current_index in assigned_indices and index_usage[current_index] >= 2:
-            current_index = (current_index + 1) % CYCLE_LEN
+        # This cycles through [0, 1, 3, 4, 5] and wraps around if needed.
+        current_index = available_indices[i % len(available_indices)]
         member_shift_states[member.name] = current_index
-        assigned_indices.add(current_index)
-        index_usage[current_index] += 1
         logger.info(f"Assigned {member.name} to index {current_index}")
 
-    # Persist states.
+    # Persist the final, correct states to the database.
     logger.info("Persisting shift states to database")
     for member_name, shift_index in member_shift_states.items():
         logger.info(f"Adding state for {member_name}: shift_index={shift_index}")
