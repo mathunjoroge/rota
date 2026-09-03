@@ -13,6 +13,13 @@ from blueprints.rota import rota_bp
 from blueprints.pdf import pdf_bp
 from blueprints.department import department_bp
 from blueprints import auth as auth_bp
+from blueprints.audit import audit_bp
+from blueprints.swap import swap_bp
+from blueprints.ical import ical_bp
+from blueprints.notifications import notifications_bp
+from blueprints.analytics import analytics_bp
+from blueprints.preferences import preferences_bp
+from blueprints.float_pool import float_bp
 
 # Load environment variables from .env file
 load_dotenv()
@@ -33,18 +40,17 @@ login_message_category = 'info'
 
 @login_manager.user_loader
 def load_user(user_id):
-    # Use db.session.get() instead of User.query.get() to avoid deprecation
     return db.session.get(User, int(user_id))
 
 @app.before_request
 def update_session_timeout():
     if current_user.is_authenticated:
-        session.permanent = True  # Extend the session lifetime for each request
+        session.permanent = True
 
 with app.app_context():
     db.create_all()
     init_db_departments()
-    schedule_tasks(app)  # Schedule the temperature recording tasks
+    schedule_tasks(app)
 
 # Register blueprints
 app.register_blueprint(org_bp)
@@ -55,8 +61,14 @@ app.register_blueprint(leave_bp)
 app.register_blueprint(rota_bp)
 app.register_blueprint(pdf_bp)
 app.register_blueprint(temp_bp)
+app.register_blueprint(audit_bp)
+app.register_blueprint(swap_bp)
+app.register_blueprint(ical_bp)
+app.register_blueprint(notifications_bp)
+app.register_blueprint(analytics_bp)
+app.register_blueprint(preferences_bp)
+app.register_blueprint(float_bp)
 app.register_blueprint(auth_bp, url_prefix='/')
-
 
 @app.route('/')
 def home():

@@ -36,6 +36,16 @@ def calculate_date_range(rotas):
         return min(start_dates), max(end_dates)
     return None, None
 
+import os
+from flask import current_app
+
+def fetch_resources(uri, rel):
+    if uri.startswith('/static/'):
+        return os.path.join(current_app.root_path, uri.lstrip('/'))
+    if 'static/' in uri:
+        return os.path.join(current_app.root_path, 'static', uri.split('static/')[-1])
+    return os.path.join(current_app.root_path, uri.lstrip('/'))
+
 # PDF generation routes
 @pdf_bp.route('/export_pdf')
 @login_required
@@ -46,12 +56,12 @@ def export_pdf():
         start_date, end_date = calculate_date_range(rotas)
         html = render_template('export_pdf.html', rotas=rotas, org_details=org_details, start_date=start_date, end_date=end_date)
         pdf = BytesIO()
-        pisa_status = pisa.CreatePDF(html, dest=pdf)
+        pisa_status = pisa.CreatePDF(html, dest=pdf, link_callback=fetch_resources)
         if pisa_status.err:
             logging.error("Error generating PDF for rotas")
             return "Error generating PDF", 500
         pdf.seek(0)
-        return Response(pdf, mimetype='application/pdf', headers={'Content-Disposition': 'attachment;filename=rota.pdf'})
+        return Response(pdf.getvalue(), mimetype='application/pdf', headers={'Content-Disposition': 'attachment; filename="rota.pdf"'})
     except Exception as e:
         logging.error(f"Error in export_pdf: {e}")
         return "Error generating PDF", 500
@@ -61,13 +71,11 @@ def count_weekdays(start, end):
     if not start or not end:
         return 0
     
-    # Convert dates to datetime objects if they are not already
     current = start if isinstance(start, datetime) else datetime.combine(start, datetime.min.time())
     end_dt = end if isinstance(end, datetime) else datetime.combine(end, datetime.min.time())
 
     weekdays = 0
     while current <= end_dt:
-        # weekday() returns 0 for Monday and 6 for Sunday
         if current.weekday() < 5:
             weekdays += 1
         current += timedelta(days=1)
@@ -79,26 +87,24 @@ def leave_rota_pdf():
     try:
         rotas = Rota.query.all()
         org_details = OrgDetails.query.all()
-        leaves = Leave.query.all()  # Fetch leaves data
+        leaves = Leave.query.all()
         start_date, end_date = calculate_date_range(rotas)
         
-        # Get current date and format it
         current_date = datetime.now().strftime('%B %d, %Y')
         
-        # Render HTML with the new custom function passed to the template
         html = render_template('leave_rota_pdf.html', leaves=leaves, org_details=org_details, 
                                start_date=start_date, end_date=end_date, 
                                current_date=current_date, count_weekdays=count_weekdays)
         
         pdf = BytesIO()
-        pisa_status = pisa.CreatePDF(html, dest=pdf)
+        pisa_status = pisa.CreatePDF(html, dest=pdf, link_callback=fetch_resources)
         
         if pisa_status.err:
             logging.error("Error generating PDF for leave rota")
             return "Error generating PDF", 500
         
         pdf.seek(0)
-        return Response(pdf, mimetype='application/pdf', headers={'Content-Disposition': 'attachment;filename=leave_rota.pdf'})
+        return Response(pdf.getvalue(), mimetype='application/pdf', headers={'Content-Disposition': 'attachment; filename="leave_rota.pdf"'})
     except Exception as e:
         logging.error(f"Error in leave_rota_pdf: {e}")
         return "Error generating PDF", 500

@@ -1,0 +1,111 @@
+{% extends 'base.html' %}
+
+{% block title %}Staff Shift Preferences{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+            <h2 class="mb-1">🎯 Preferred Days Off</h2>
+            <p class="text-muted mb-0">Staff can indicate preferred off days for upcoming rota periods.</p>
+        </div>
+    </div>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+          </div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    <div class="row g-4">
+        <!-- Preference Submission Form -->
+        <div class="col-md-5">
+            <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white fw-bold">
+                    📝 Submit Preference
+                </div>
+                <div class="card-body">
+                    <form method="POST" action="{{ url_for('preferences.preferences') }}">
+                        <div class="mb-3">
+                            <label for="member_id" class="form-label fw-bold">Staff Member</label>
+                            <select name="member_id" id="member_id" class="form-select" required>
+                                {% for m in members %}
+                                    <option value="{{ m.id }}">{{ m.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="week_start" class="form-label fw-bold">Week Starting (Monday)</label>
+                            <input type="date" name="week_start" id="week_start" class="form-control" value="{{ next_mon }}" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Select Preferred Days Off</label>
+                            <div class="card p-2 bg-light">
+                                {% for day in upcoming_days %}
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" name="off_days" value="{{ day.strftime('%Y-%m-%d') }}" id="day_{{ loop.index }}">
+                                    <label class="form-check-label" for="day_{{ loop.index }}">
+                                        {{ day.strftime('%A, %d-%b') }}
+                                    </label>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label for="notes" class="form-label fw-bold">Reason / Notes (Optional)</label>
+                            <input type="text" name="notes" id="notes" class="form-control" placeholder="e.g. Exam, family commitment">
+                        </div>
+                        <button type="submit" class="btn btn-success w-100">Submit Preferences</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Preferences History Table -->
+        <div class="col-md-7">
+            <div class="card shadow-sm">
+                <div class="card-header bg-secondary text-white fw-bold">
+                    📋 Active Submitted Preferences
+                </div>
+                <div class="card-body p-0">
+                    <table class="table table-bordered table-striped mb-0 align-middle">
+                        <thead class="table-dark">
+                            <tr>
+                                <th>Staff Member</th>
+                                <th>Week Start</th>
+                                <th>Preferred Off Days</th>
+                                <th>Notes</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for p in preferences %}
+                            <tr>
+                                <td><strong>{{ p.member_name }}</strong></td>
+                                <td>{{ p.week_start }}</td>
+                                <td>
+                                    {% for d in p.off_days %}
+                                        <span class="badge bg-info text-dark mb-1">{{ d }}</span>
+                                    {% else %}
+                                        <span class="text-muted">None specified</span>
+                                    {% endfor %}
+                                </td>
+                                <td><small>{{ p.notes or '-' }}</small></td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="4" class="text-center text-muted p-4">No preferences logged yet.</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

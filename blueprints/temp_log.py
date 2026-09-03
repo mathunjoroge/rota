@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, request, current_app, send_file, make_response
+from flask import Blueprint, render_template, request, current_app, send_file, make_response, Response
 from flask_login import login_required
 from flask_apscheduler import APScheduler
 from models.models import TemperatureLog, db, OrgDetails
@@ -14,33 +14,72 @@ temp_bp = Blueprint('temp_log', __name__)
 
 # Load configuration from environment
 API_KEY = os.getenv('OPENWEATHERMAP_API_KEY')
-LOCATION = 'kombewa'
+
+# ============================================================
+# PHARMACY TEMPERATURE COMPLIANCE SETTINGS
+# Per WHO Technical Report Series No. 961 (Annex 9) and
+# Kenya Pharmacy and Poisons Board (PPB) storage guidelines.
+# ============================================================
+LOCATION = 'kisumu'
+# Kisumu, Kenya coordinates
+LATITUDE = -0.0917
+LONGITUDE = 34.7680
+
+# Indoor offset: estimated room temp = outdoor temp - this value
+INDOOR_OFFSET = 5.0
+
+# WHO / PPB pharmacy room storage thresholds (°C)
+PHARMACY_TEMP_MIN = 15.0   # Below this → CRITICAL: too cold
+PHARMACY_TEMP_MAX = 25.0   # Above this → WARNING / CRITICAL
+PHARMACY_WARN_MAX = 30.0   # Above this → CRITICAL DANGER
+
+def classify_temperature(room_temp):
+    """
+    Classify a room temperature reading for pharmacy compliance.
+    Returns (acceptable: bool, status: str, severity: str)
+      - severity: 'ok', 'warning', 'critical'
+    """
+    if room_temp is None:
+        return False, 'No Reading', 'critical'
+    if room_temp < PHARMACY_TEMP_MIN:
+        return False, f'TOO COLD ({room_temp:.1f}°C < {PHARMACY_TEMP_MIN}°C)', 'critical'
+    if room_temp > PHARMACY_WARN_MAX:
+        return False, f'DANGER ({room_temp:.1f}°C > {PHARMACY_WARN_MAX}°C)', 'critical'
+    if room_temp > PHARMACY_TEMP_MAX:
+        return False, f'ABOVE RANGE ({room_temp:.1f}°C > {PHARMACY_TEMP_MAX}°C)', 'warning'
+    return True, f'OK ({room_temp:.1f}°C)', 'ok'
+
 
 def fetch_temperature():
-    """Fetch current temperature from the weather API with error handling."""
+    """Fetch current outdoor temperature for Kisumu from OpenWeather API."""
     try:
-        url = f'http://api.openweathermap.org/data/2.5/weather?lat=-0.10345&lon=34.51792&appid={API_KEY}&units=metric'
+        url = (
+            f'http://api.openweathermap.org/data/2.5/weather'
+            f'?lat={LATITUDE}&lon={LONGITUDE}'
+            f'&appid={API_KEY}&units=metric'
+        )
         response = requests.get(url, timeout=10)
         if response.status_code == 200:
             data = response.json()
             return data['main']['temp']
         else:
             if current_app:
-                current_app.logger.error(f"Failed to fetch temperature: {response.status_code}")
+                current_app.logger.error(f"OpenWeather API error {response.status_code} for {LOCATION}")
             return None
     except Exception as e:
         if current_app:
-            current_app.logger.error(f"Exception while fetching temperature: {str(e)}")
+            current_app.logger.error(f"Exception fetching temperature: {str(e)}")
         return None
 
+
 def record_temperature(app, time_period, manual_temp=None, initials='SYS'):
-    """Record the fetched or provided temperature into the database."""
+    """Record the fetched or manually-provided temperature into the database."""
     with app.app_context():
         temp = manual_temp if manual_temp is not None else fetch_temperature()
         if temp is not None:
-            estimated_room_temp = temp - 5
+            estimated_room_temp = round(temp - INDOOR_OFFSET, 2)
             date_today = datetime.now().date()
-            acceptable = 15.0 <= estimated_room_temp <= 29.0
+            acceptable, _, _ = classify_temperature(estimated_room_temp)
 
             existing_log = TemperatureLog.query.filter_by(date=date_today, time=time_period).first()
             if existing_log:
@@ -49,7 +88,7 @@ def record_temperature(app, time_period, manual_temp=None, initials='SYS'):
                 existing_log.acceptable = acceptable
                 existing_log.initials = initials
                 db.session.commit()
-                app.logger.info(f"Updated temperature log for {time_period} on {date_today}")
+                app.logger.info(f"Updated temperature log for {time_period} on {date_today}: {estimated_room_temp}°C room")
                 return True
 
             temp_log = TemperatureLog(
@@ -62,9 +101,10 @@ def record_temperature(app, time_period, manual_temp=None, initials='SYS'):
             )
             db.session.add(temp_log)
             db.session.commit()
-            app.logger.info(f"Recorded temperature: {temp}°C at {time_period}")
+            app.logger.info(f"Recorded temperature: {temp}°C outdoor, {estimated_room_temp}°C room at {time_period}")
             return True
         return False
+
 
 def schedule_tasks(app):
     """Schedule periodic temperature recording tasks."""
@@ -74,23 +114,23 @@ def schedule_tasks(app):
         id='record_temp_am',
         func=lambda: record_temperature(app, 'AM'),
         trigger='cron',
-        hour=8,  # 8:00 AM EAT
+        hour=8,   # 8:00 AM EAT
         minute=0
     )
     scheduler.add_job(
         id='record_temp_pm',
         func=lambda: record_temperature(app, 'PM'),
         trigger='cron',
-        hour=16,  # 2:00 PM EAT
-        minute=27 # Run at 2:00pm
+        hour=14,  # 2:00 PM EAT
+        minute=0
     )
     scheduler.start()
+
 
 @temp_bp.route('/temp_log')
 @login_required
 def temp_log():
-    """Render temperature logs in a template, grouped by date."""
-    # Query distinct temperature logs
+    """Render pharmacy temperature logs with compliance warnings."""
     temperature_logs = db.session.query(
         TemperatureLog.date,
         TemperatureLog.time,
@@ -102,91 +142,118 @@ def temp_log():
         TemperatureLog.date,
         TemperatureLog.time
     ).order_by(
-        TemperatureLog.date.asc(),
+        TemperatureLog.date.desc(),
         TemperatureLog.time.asc()
     ).all()
 
     # Group logs by date
     grouped_logs = defaultdict(lambda: {'AM': None, 'PM': None})
-
     for log in temperature_logs:
         grouped_logs[log.date][log.time] = log
 
-    return render_template('temp_log.html', grouped_logs=grouped_logs)
+    # Count recent excursions (last 7 days)
+    from datetime import timedelta
+    cutoff = datetime.now().date() - timedelta(days=7)
+    recent_excursions = TemperatureLog.query.filter(
+        TemperatureLog.date >= cutoff,
+        TemperatureLog.acceptable == False
+    ).count()
+
+    return render_template(
+        'temp_log.html',
+        grouped_logs=grouped_logs,
+        recent_excursions=recent_excursions,
+        temp_min=PHARMACY_TEMP_MIN,
+        temp_max=PHARMACY_TEMP_MAX,
+        warn_max=PHARMACY_WARN_MAX,
+        location=LOCATION.title()
+    )
+
 
 @temp_bp.route('/export_logs', methods=['GET', 'POST'])
 @login_required
 def export_logs():
-    """Export distinct temperature logs between specified dates to PDF."""
+    """Export temperature logs to PDF (supports GET for instant 1-click export, or POST for date-range filter)."""
+    start_date = None
+    end_date = None
+
     if request.method == 'POST':
-        start_date = request.form.get('start_date')
-        end_date = request.form.get('end_date')
+        start_date_str = request.form.get('start_date')
+        end_date_str = request.form.get('end_date')
+    else:
+        start_date_str = request.args.get('start_date')
+        end_date_str = request.args.get('end_date')
 
-        if not start_date or not end_date:
-            return "Start date and end date are required", 400
-
-        # Convert date strings to datetime objects
+    if start_date_str and end_date_str:
         try:
-            start_date = datetime.strptime(start_date, '%Y-%m-%d').date()
-            end_date = datetime.strptime(end_date, '%Y-%m-%d').date()
+            start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
+            end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
         except ValueError:
-            return "Invalid date format. Please use YYYY-MM-DD.", 400
+            start_date = None
+            end_date = None
 
-        # Query distinct temperature logs within the given date range
-        temperature_logs = db.session.query(
-            TemperatureLog.date,
-            TemperatureLog.time,
-            TemperatureLog.recorded_temp,
-            TemperatureLog.acceptable,
-            TemperatureLog.initials,
-            TemperatureLog.estimated_room
-        ).distinct(
-            TemperatureLog.date,
-            TemperatureLog.time
-        ).filter(
-            TemperatureLog.date >= start_date,
-            TemperatureLog.date <= end_date
-        ).order_by(
-            TemperatureLog.date.asc(),
-            TemperatureLog.time.asc()
-        ).all()
+    query = db.session.query(
+        TemperatureLog.date,
+        TemperatureLog.time,
+        TemperatureLog.recorded_temp,
+        TemperatureLog.acceptable,
+        TemperatureLog.initials,
+        TemperatureLog.estimated_room
+    ).distinct(
+        TemperatureLog.date,
+        TemperatureLog.time
+    )
 
-        # Group logs by date and time (AM/PM)
-        grouped_logs = defaultdict(lambda: {'AM': None, 'PM': None})
+    if start_date and end_date:
+        query = query.filter(TemperatureLog.date >= start_date, TemperatureLog.date <= end_date)
 
-        for log in temperature_logs:
-            grouped_logs[log.date][log.time] = log
+    temperature_logs = query.order_by(
+        TemperatureLog.date.asc(),
+        TemperatureLog.time.asc()
+    ).all()
 
-        # Retrieve organizational details for the header
-        org_details = OrgDetails.query.all()
+    if not start_date or not end_date:
+        dates = [log.date for log in temperature_logs if log.date]
+        start_date = min(dates) if dates else datetime.now().date()
+        end_date = max(dates) if dates else datetime.now().date()
 
-        # Render the HTML template for PDF generation
-        rendered_html = render_template(
-            'temp_log_pdf.html',
-            grouped_logs=grouped_logs,
-            start_date=start_date,
-            end_date=end_date,
-            org_details=org_details
-        )
+    grouped_logs = defaultdict(lambda: {'AM': None, 'PM': None})
+    for log in temperature_logs:
+        grouped_logs[log.date][log.time] = log
 
-        # Generate the PDF using xhtml2pdf
-        pdf = io.BytesIO()
-        pisa_status = pisa.CreatePDF(io.StringIO(rendered_html), dest=pdf)
+    org_details = OrgDetails.query.all()
 
-        if pisa_status.err:
-            return "Error creating PDF", 500
+    rendered_html = render_template(
+        'temp_log_pdf.html',
+        grouped_logs=grouped_logs,
+        start_date=start_date,
+        end_date=end_date,
+        org_details=org_details,
+        temp_min=PHARMACY_TEMP_MIN,
+        temp_max=PHARMACY_TEMP_MAX
+    )
 
-        pdf.seek(0)
-        # Return the generated PDF file as an attachment
-        return send_file(
-            pdf,
-            mimetype='application/pdf',
-            as_attachment=True,
-            download_name=f'temp_logs_{start_date}_to_{end_date}.pdf'
-        )
+    def fetch_resources(uri, rel):
+        if uri.startswith('/static/'):
+            return os.path.join(current_app.root_path, uri.lstrip('/'))
+        if 'static/' in uri:
+            return os.path.join(current_app.root_path, 'static', uri.split('static/')[-1])
+        return os.path.join(current_app.root_path, uri.lstrip('/'))
 
-    # If GET request, just render the temp_log page
-    return render_template('temp_log.html')
+    pdf = io.BytesIO()
+    pisa_status = pisa.CreatePDF(io.StringIO(rendered_html), dest=pdf, link_callback=fetch_resources)
+
+    if pisa_status.err:
+        return "Error creating PDF", 500
+
+    pdf.seek(0)
+    filename = f"pharmacy_temp_log_{start_date}_to_{end_date}.pdf"
+    return Response(
+        pdf.getvalue(),
+        mimetype='application/pdf',
+        headers={'Content-Disposition': f'attachment; filename="{filename}"'}
+    )
+
 
 @temp_bp.route('/record_now', methods=['POST'])
 @login_required
@@ -203,4 +270,3 @@ def record_now():
     else:
         flash("Could not fetch temperature automatically. Please specify a manual value.", "danger")
     return redirect(url_for('temp_log.temp_log'))
-

@@ -1,66 +1,111 @@
 {% extends 'base.html' %}
 
-{% block title %}Temperature Log{% endblock %}
+{% block title %}Pharmacy Temperature Log{% endblock %}
 
 {% block content %}
 <div class="container mt-4">
     <div class="d-flex justify-content-between align-items-center mb-3">
         <div>
-            <h2 class="mb-1">Temperature Log</h2>
-            <p class="text-muted mb-0">Auto-updated via OpenWeather API (8:00 AM & 2:00 PM) for cold-chain & room compliance.</p>
+            <h2 class="mb-1">🏥 Pharmacy Temperature Monitoring</h2>
+            <p class="text-muted mb-0">
+                <strong>{{ location }}</strong> &middot; WHO/PPB compliant room storage range:
+                <span class="badge bg-success">{{ temp_min }}°C – {{ temp_max }}°C</span>
+                &middot; Auto-recorded at 8:00 AM &amp; 2:00 PM via OpenWeather API
+            </p>
         </div>
-        <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#recordTempModal">+ Log Temperature Now</button>
+        <div>
+            <a href="{{ url_for('temp_log.export_logs') }}" class="btn btn-secondary me-2">Export to PDF</a>
+            <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#recordTempModal">+ Log Temperature</button>
+        </div>
     </div>
+
+    {# ── COMPLIANCE WARNING BANNER ── #}
+    {% if recent_excursions > 0 %}
+    <div class="alert alert-danger d-flex align-items-center" role="alert">
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" class="bi bi-exclamation-triangle-fill me-2" viewBox="0 0 16 16">
+            <path d="M8.982 1.566a1.13 1.13 0 0 0-1.96 0L.165 13.233c-.457.778.091 1.767.98 1.767h13.713c.889 0 1.438-.99.98-1.767L8.982 1.566zM8 5c.535 0 .954.462.9.995l-.35 3.507a.552.552 0 0 1-1.1 0L7.1 5.995A.905.905 0 0 1 8 5zm.002 6a1 1 0 1 1 0 2 1 1 0 0 1 0-2z"/>
+        </svg>
+        <div>
+            <strong>⚠️ Temperature Excursion Alert!</strong>
+            <strong>{{ recent_excursions }}</strong> reading(s) outside the acceptable range ({{ temp_min }}°C – {{ temp_max }}°C)
+            in the <strong>last 7 days</strong>.
+            Per PPB/WHO guidelines, investigate immediately and document corrective actions.
+        </div>
+    </div>
+    {% else %}
+    <div class="alert alert-success d-flex align-items-center" role="alert">
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" class="bi bi-check-circle-fill me-2" viewBox="0 0 16 16">
+            <path d="M16 8A8 8 0 1 1 0 8a8 8 0 0 1 16 0zm-3.97-3.03a.75.75 0 0 0-1.08.022L7.477 9.417 5.384 7.323a.75.75 0 0 0-1.06 1.06L6.97 11.03a.75.75 0 0 0 1.079-.02l3.992-4.99a.75.75 0 0 0-.01-1.05z"/>
+        </svg>
+        <div>
+            <strong>✅ All Clear</strong> — All readings within the last 7 days are within the acceptable
+            pharmacy storage range ({{ temp_min }}°C – {{ temp_max }}°C).
+        </div>
+    </div>
+    {% endif %}
 
     {% with messages = get_flashed_messages(with_categories=true) %}
       {% if messages %}
-        <div class="alert-container">
-          {% for category, message in messages %}
-            <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
-              {{ message }}
-              <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-            </div>
-          {% endfor %}
-        </div>
+        {% for category, message in messages %}
+          <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+          </div>
+        {% endfor %}
       {% endif %}
     {% endwith %}
 
+    {# ── EXPORT & THRESHOLD CARD ── #}
     <div class="card p-3 mb-4 bg-light">
-        <form method="POST" action="{{ url_for('temp_log.export_logs') }}" class="row g-3 align-items-end">
-            <div class="col-md-4">
-                <label for="start_date" class="form-label fw-bold">Start Date</label>
-                <input type="date" name="start_date" id="start_date" class="form-control" required>
+        <div class="row g-3 align-items-end">
+            <div class="col-md-3">
+                <span class="fw-bold">Threshold Key:</span><br>
+                <span class="badge bg-success">OK: {{ temp_min }}–{{ temp_max }}°C</span>
+                <span class="badge bg-warning text-dark">Warn: {{ temp_max }}–{{ warn_max }}°C</span>
+                <span class="badge bg-danger">Critical: &lt;{{ temp_min }}°C or &gt;{{ warn_max }}°C</span>
             </div>
-            <div class="col-md-4">
-                <label for="end_date" class="form-label fw-bold">End Date</label>
-                <input type="date" name="end_date" id="end_date" class="form-control" required>
+            <div class="col-md-9">
+                <form method="POST" action="{{ url_for('temp_log.export_logs') }}" class="row g-2 align-items-end">
+                    <div class="col-md-4">
+                        <label for="start_date" class="form-label fw-bold">Start Date</label>
+                        <input type="date" name="start_date" id="start_date" class="form-control" required>
+                    </div>
+                    <div class="col-md-4">
+                        <label for="end_date" class="form-label fw-bold">End Date</label>
+                        <input type="date" name="end_date" id="end_date" class="form-control" required>
+                    </div>
+                    <div class="col-md-4">
+                        <button type="submit" class="btn btn-primary w-100">📄 Export PDF</button>
+                    </div>
+                </form>
             </div>
-            <div class="col-md-4">
-                <button type="submit" class="btn btn-primary w-100">Export PDF Logs</button>
-            </div>
-        </form>
+        </div>
     </div>
 
-    <!-- Manual Log Modal -->
+    {# ── MANUAL LOG MODAL ── #}
     <div class="modal fade" id="recordTempModal" tabindex="-1" aria-labelledby="recordTempModalLabel" aria-hidden="true">
         <div class="modal-dialog">
             <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="recordTempModalLabel">Log Temperature</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                <div class="modal-header bg-success text-white">
+                    <h5 class="modal-title" id="recordTempModalLabel">🌡️ Log Temperature</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <form method="POST" action="{{ url_for('temp_log.record_now') }}">
                     <div class="modal-body">
+                        <div class="alert alert-info mb-3">
+                            Leave the temperature field blank to auto-fetch from OpenWeather for <strong>{{ location }}</strong>.
+                        </div>
                         <div class="mb-3">
                             <label for="time_period" class="form-label">Period</label>
                             <select name="time_period" id="time_period" class="form-select" required>
-                                <option value="AM">AM (Morning)</option>
-                                <option value="PM">PM (Afternoon)</option>
+                                <option value="AM">AM (Morning – 8:00 AM)</option>
+                                <option value="PM">PM (Afternoon – 2:00 PM)</option>
                             </select>
                         </div>
                         <div class="mb-3">
-                            <label for="recorded_temp" class="form-label">Outdoor Temperature (°C) [Optional - leave blank to fetch live]</label>
-                            <input type="number" step="0.1" name="recorded_temp" id="recorded_temp" class="form-control" placeholder="e.g. 24.5">
+                            <label for="recorded_temp" class="form-label">Outdoor Temperature °C <small class="text-muted">(optional)</small></label>
+                            <input type="number" step="0.1" name="recorded_temp" id="recorded_temp" class="form-control" placeholder="e.g. 28.5">
+                            <div class="form-text">Room temp is estimated as outdoor − {{ 5 }}°C</div>
                         </div>
                         <div class="mb-3">
                             <label for="initials" class="form-label">Staff Initials</label>
@@ -69,50 +114,90 @@
                     </div>
                     <div class="modal-footer">
                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                        <button type="submit" class="btn btn-success">Record Now</button>
+                        <button type="submit" class="btn btn-success">🌡️ Record Now</button>
                     </div>
                 </form>
             </div>
         </div>
     </div>
 
-    <table class="table table-bordered table-striped mt-4">
-        <thead>
+    {# ── TEMPERATURE LOG TABLE ── #}
+    <table class="table table-bordered table-hover mt-2 align-middle">
+        <thead class="table-dark">
             <tr>
-                <th>Date</th>
-                <th>AM</th>
-                <th>Recorded Temp</th>
-                <th>Estimated Room Temp</th>
-                <th>Acceptable</th>
+                <th class="text-center bg-primary text-white"></th>
+                <th colspan="5" class="text-center bg-primary text-white">AM Reading (8:00 AM)</th>
+                <th colspan="5" class="text-center bg-info text-dark">PM Reading (2:00 PM)</th>
+            </tr>
+            <tr><th >Date</th>
+                <th>Time</th>
+                <th>Outdoor °C</th>
+                <th>Room °C</th>
+                <th>Status</th>
                 <th>Initials</th>
-                <th>PM</th>
-                <th>Recorded Temp</th>
-                <th>Estimated Room Temp</th>
-                <th>Acceptable</th>
+                <th>Time</th>
+                <th>Outdoor °C</th>
+                <th>Room °C</th>
+                <th>Status</th>
                 <th>Initials</th>
             </tr>
         </thead>
         <tbody>
             {% for date, times in grouped_logs.items() %}
             <tr>
-                <td>{{ date.strftime('%d-%m-%Y') }}</td>  <!-- Date formatted as dd-mm-yyyy -->
+                <td class="fw-bold">{{ date.strftime('%d-%m-%Y') }}</td>
 
-                <!-- AM -->
-                <td>{% if times.AM %}8:00 AM{% else %}-{% endif %}</td>
-                <td>{% if times.AM %}{{ '{:.2f}'.format(times.AM.recorded_temp) }} &deg;C{% else %}-{% endif %}</td>
-                <td>{% if times.AM %}{{ '{:.2f}'.format(times.AM.estimated_room) }} &deg;C{% else %}-{% endif %}</td>
-                <td>{% if times.AM %}{{ 'Yes' if times.AM.acceptable else 'No' }}{% else %}-{% endif %}</td>
-                <td>{% if times.AM %}{{ times.AM.initials }}{% else %}-{% endif %}</td>
+                {# ── AM ── #}
+                {% if times.AM %}
+                    <td>8:00 AM</td>
+                    <td>{{ '{:.1f}'.format(times.AM.recorded_temp) }}</td>
+                    {% set room = times.AM.estimated_room %}
+                    {% if room < temp_min or room > warn_max %}
+                        <td class="bg-danger text-white fw-bold">{{ '{:.1f}'.format(room) }}</td>
+                        <td><span class="badge bg-danger">🔴 CRITICAL</span></td>
+                    {% elif room > temp_max %}
+                        <td class="bg-warning fw-bold">{{ '{:.1f}'.format(room) }}</td>
+                        <td><span class="badge bg-warning text-dark">🟡 WARNING</span></td>
+                    {% else %}
+                        <td class="text-success fw-bold">{{ '{:.1f}'.format(room) }}</td>
+                        <td><span class="badge bg-success">🟢 OK</span></td>
+                    {% endif %}
+                    <td>{{ times.AM.initials }}</td>
+                {% else %}
+                    <td colspan="5" class="text-center text-muted">— No AM reading —</td>
+                {% endif %}
 
-                <!-- PM -->
-                <td>{% if times.PM %}2:00 PM{% else %}-{% endif %}</td>
-                <td>{% if times.PM %}{{ '{:.2f}'.format(times.PM.recorded_temp) }} &deg;C{% else %}-{% endif %}</td>
-                <td>{% if times.PM %}{{ '{:.2f}'.format(times.PM.estimated_room) }} &deg;C{% else %}-{% endif %}</td>
-                <td>{% if times.PM %}{{ 'Yes' if times.PM.acceptable else 'No' }}{% else %}-{% endif %}</td>
-                <td>{% if times.PM %}{{ times.PM.initials }}{% else %}-{% endif %}</td>
+                {# ── PM ── #}
+                {% if times.PM %}
+                    <td>2:00 PM</td>
+                    <td>{{ '{:.1f}'.format(times.PM.recorded_temp) }}</td>
+                    {% set room = times.PM.estimated_room %}
+                    {% if room < temp_min or room > warn_max %}
+                        <td class="bg-danger text-white fw-bold">{{ '{:.1f}'.format(room) }}</td>
+                        <td><span class="badge bg-danger">🔴 CRITICAL</span></td>
+                    {% elif room > temp_max %}
+                        <td class="bg-warning fw-bold">{{ '{:.1f}'.format(room) }}</td>
+                        <td><span class="badge bg-warning text-dark">🟡 WARNING</span></td>
+                    {% else %}
+                        <td class="text-success fw-bold">{{ '{:.1f}'.format(room) }}</td>
+                        <td><span class="badge bg-success">🟢 OK</span></td>
+                    {% endif %}
+                    <td>{{ times.PM.initials }}</td>
+                {% else %}
+                    <td colspan="5" class="text-center text-muted">— No PM reading —</td>
+                {% endif %}
             </tr>
             {% endfor %}
         </tbody>
     </table>
+
+    <div class="card bg-light p-3 mt-3 mb-4">
+        <small class="text-muted">
+            <strong>Reference:</strong> WHO Technical Report Series No. 961, Annex 9 — Storage of pharmaceutical products.
+            Kenya Pharmacy and Poisons Board (PPB) — Guidelines for Good Distribution Practice.
+            Acceptable room storage temperature: <strong>{{ temp_min }}°C – {{ temp_max }}°C</strong>.
+            Outdoor data sourced from <a href="https://openweathermap.org/" target="_blank">OpenWeatherMap</a> for {{ location }}, Kenya.
+        </small>
+    </div>
 </div>
 {% endblock %}

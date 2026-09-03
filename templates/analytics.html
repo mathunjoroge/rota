@@ -1,0 +1,149 @@
+{% extends 'base.html' %}
+
+{% block title %}Analytics & Fairness Dashboard{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+            <h2 class="mb-1">📊 Workforce Analytics &amp; Fairness Dashboard</h2>
+            <p class="text-muted mb-0">Visual analysis of shift distribution equity, leave usage, and pharmacy temperature compliance.</p>
+        </div>
+    </div>
+
+    <!-- Department Selector -->
+    <div class="card p-3 mb-4 bg-light">
+        <form method="GET" action="{{ url_for('analytics.analytics_page') }}" class="row g-3 align-items-center">
+            <div class="col-md-8">
+                <label for="dept_id" class="form-label fw-bold mb-0">Select Department</label>
+                <select name="dept_id" id="dept_id" class="form-select" onchange="this.form.submit()">
+                    {% for d in departments %}
+                        <option value="{{ d.id }}" {% if selected_dept_id == d.id %}selected{% endif %}>{{ d.name }} ({{ d.code }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+        </form>
+    </div>
+
+    <!-- Charts Row -->
+    <div class="row g-4 mb-4">
+        <!-- Shift Fairness Chart -->
+        <div class="col-md-7">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-primary text-white fw-bold">
+                    ⚖️ Shift Distribution Equity (Fairness Meter)
+                </div>
+                <div class="card-body">
+                    <canvas id="fairnessChart" height="220"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Leave Utilization Chart -->
+        <div class="col-md-5">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-success text-white fw-bold">
+                    🏖️ Leave Utilization Breakdown
+                </div>
+                <div class="card-body">
+                    <canvas id="leaveChart" height="220"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 30-Day Pharmacy Temperature Stability -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-info text-dark fw-bold">
+            🌡️ Pharmacy 30-Day Storage Temperature Trend (Kisumu)
+        </div>
+        <div class="card-body">
+            <canvas id="tempTrendChart" height="100"></canvas>
+        </div>
+    </div>
+</div>
+
+<!-- Load Chart.js from CDN -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    const deptId = "{{ selected_dept_id }}";
+
+    // 1. Shift Fairness Stacked Bar Chart
+    fetch(`/analytics/api/shift_fairness?dept_id=${deptId}`)
+        .then(res => res.json())
+        .then(data => {
+            const ctx = document.getElementById('fairnessChart').getContext('2d');
+            new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: data.labels,
+                    datasets: [
+                        { label: 'Morning', data: data.morning, backgroundColor: '#0d6efd' },
+                        { label: 'Evening', data: data.evening, backgroundColor: '#ffc107' },
+                        { label: 'Night', data: data.night, backgroundColor: '#dc3545' },
+                        { label: 'Night Off', data: data.night_off, backgroundColor: '#198754' }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    scales: { x: { stacked: true }, y: { stacked: true, beginAtZero: true } }
+                }
+            });
+        });
+
+    // 2. Leave Utilization Doughnut/Bar Chart
+    fetch(`/analytics/api/leave_stats?dept_id=${deptId}`)
+        .then(res => res.json())
+        .then(data => {
+            const ctx = document.getElementById('leaveChart').getContext('2d');
+            new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: data.labels,
+                    datasets: [
+                        { label: 'Days Taken', data: data.taken, backgroundColor: '#fd7e14' },
+                        { label: 'Days Remaining', data: data.remaining, backgroundColor: '#20c997' }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    scales: { y: { beginAtZero: true } }
+                }
+            });
+        });
+
+    // 3. 30-Day Temp Stability Line Chart
+    fetch('/analytics/api/temp_trend')
+        .then(res => res.json())
+        .then(data => {
+            const ctx = document.getElementById('tempTrendChart').getContext('2d');
+            new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: data.dates,
+                    datasets: [{
+                        label: 'Estimated Room Temperature (°C)',
+                        data: data.temps,
+                        borderColor: '#0dcaf0',
+                        backgroundColor: 'rgba(13, 202, 240, 0.1)',
+                        fill: true,
+                        tension: 0.3
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        y: {
+                            min: 10,
+                            max: 35,
+                            title: { display: true, text: 'Temperature (°C)' }
+                        }
+                    }
+                }
+            });
+        });
+});
+</script>
+{% endblock %}

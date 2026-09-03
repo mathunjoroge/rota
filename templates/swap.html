@@ -1,0 +1,155 @@
+{% extends 'base.html' %}
+
+{% block title %}Shift Swaps & Requests{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+            <h2 class="mb-1">🔄 Shift Swap Requests</h2>
+            <p class="text-muted mb-0">Request and approve peer-to-peer shift swaps in your department.</p>
+        </div>
+        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#newSwapModal">+ Request Shift Swap</button>
+    </div>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+          </div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    <!-- New Swap Request Modal -->
+    <div class="modal fade" id="newSwapModal" tabindex="-1" aria-labelledby="newSwapModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title" id="newSwapModalLabel">🔄 New Shift Swap Request</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <form method="POST" action="{{ url_for('swap.request_swap') }}">
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label for="requester_id" class="form-label fw-bold">Your Name (Requester)</label>
+                            <select name="requester_id" id="requester_id" class="form-select" required>
+                                {% for m in members %}
+                                    <option value="{{ m.id }}">{{ m.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="proposed_member_id" class="form-label fw-bold">Swap With (Colleague)</label>
+                            <select name="proposed_member_id" id="proposed_member_id" class="form-select" required>
+                                {% for m in members %}
+                                    <option value="{{ m.id }}">{{ m.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="rota_id" class="form-label fw-bold">Rota ID</label>
+                            <input type="number" name="rota_id" id="rota_id" class="form-control" placeholder="e.g. 1" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="week_range" class="form-label fw-bold">Week Range</label>
+                            <input type="text" name="week_range" id="week_range" class="form-control" placeholder="e.g. 2026-09-07 - 2026-09-13" required>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="requester_shift" class="form-label fw-bold">Your Shift</label>
+                                <select name="requester_shift" id="requester_shift" class="form-select" required>
+                                    <option value="evening">Evening</option>
+                                    <option value="night">Night</option>
+                                    <option value="morning">Morning</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="proposed_shift" class="form-label fw-bold">Colleague Shift</label>
+                                <select name="proposed_shift" id="proposed_shift" class="form-select" required>
+                                    <option value="morning">Morning</option>
+                                    <option value="evening">Evening</option>
+                                    <option value="night">Night</option>
+                                    <option value="night_off">Night Off</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label for="reason" class="form-label fw-bold">Reason for Swap</label>
+                            <input type="text" name="reason" id="reason" class="form-control" placeholder="e.g. Personal commitment / emergency">
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-primary">Submit Swap Request</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Swap Requests Table -->
+    <div class="table-responsive mt-3">
+        <table class="table table-bordered table-hover align-middle">
+            <thead class="table-dark">
+                <tr>
+                    <th>Date Requested</th>
+                    <th>Requester</th>
+                    <th>Colleague</th>
+                    <th>Week</th>
+                    <th>Swap Offered</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for swap in all_swaps %}
+                <tr>
+                    <td class="small text-muted">{{ swap.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                    <td><strong>{{ swap.requester.name if swap.requester else 'Unknown' }}</strong></td>
+                    <td><strong>{{ swap.proposed_member.name if swap.proposed_member else 'Unknown' }}</strong></td>
+                    <td>{{ swap.week_range }}</td>
+                    <td>
+                        <span class="badge bg-secondary">{{ swap.requester_shift|title }}</span>
+                        ↔
+                        <span class="badge bg-secondary">{{ swap.proposed_shift|title }}</span>
+                    </td>
+                    <td>
+                        {% if swap.status == 'pending' %}
+                            <span class="badge bg-warning text-dark">🟡 Pending Peer Response</span>
+                        {% elif swap.status == 'peer_approved' %}
+                            <span class="badge bg-info text-dark">🔵 Peer Accepted — Pending Admin</span>
+                        {% elif swap.status == 'approved' %}
+                            <span class="badge bg-success">🟢 Approved &amp; Swapped</span>
+                        {% else %}
+                            <span class="badge bg-danger">🔴 Rejected</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if swap.status == 'pending' %}
+                            <form method="POST" action="{{ url_for('swap.peer_respond', swap_id=swap.id) }}" class="d-inline">
+                                <button type="submit" name="response" value="accept" class="btn btn-sm btn-success">Accept</button>
+                                <button type="submit" name="response" value="reject" class="btn btn-sm btn-outline-danger">Decline</button>
+                            </form>
+                        {% elif swap.status == 'peer_approved' and current_user.level >= 1 %}
+                            <form method="POST" action="{{ url_for('swap.admin_approve', swap_id=swap.id) }}" class="d-inline">
+                                <button type="submit" name="decision" value="approve" class="btn btn-sm btn-success">Approve Swap</button>
+                                <button type="submit" name="decision" value="reject" class="btn btn-sm btn-danger">Reject</button>
+                            </form>
+                        {% else %}
+                            <span class="text-muted small">—</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="7" class="text-center text-muted p-4">No shift swap requests logged yet.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

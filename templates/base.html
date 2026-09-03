@@ -9,74 +9,176 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
   
   <style>
-    /* Prevent navbar items from wrapping */
-    .navbar-nav {
-      flex-wrap: nowrap;
-      overflow: hidden;
+    /* Custom Premium Dark Gradient Navbar */
+    .custom-navbar {
+      background: linear-gradient(135deg, #12082f 0%, #241154 50%, #190c3d 100%) !important;
+      border-bottom: 2px solid #3d2385;
+      padding-top: 6px;
+      padding-bottom: 6px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+    }
+
+    ul.navbar-nav, .navbar-nav {
+      list-style: none !important;
+      padding-left: 0 !important;
+      margin-bottom: 0 !important;
+      gap: 4px;
     }
     
     .navbar-nav .nav-item {
-      margin-right: 10px; /* Reduce margin between links */
+      list-style: none !important;
     }
 
+    /* Seamless Logo Integration */
     .navbar-brand img {
-      max-height: 80px; /* Reduce logo size */
+      max-height: 62px;
       width: auto;
-      margin-left: -10px;
+      border-radius: 6px;
+      transition: transform 0.2s ease;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+    }
+    .navbar-brand img:hover {
+      transform: scale(1.02);
     }
 
-    .navbar-collapse {
-      flex-wrap: nowrap;
-    }
-
-    .nav-link {
-      padding: 8px 12px; /* Reduce padding */
+    /* Navigation Links Styling */
+    .custom-navbar .nav-link {
+      color: rgba(255, 255, 255, 0.88) !important;
+      padding: 8px 14px !important;
       white-space: nowrap;
+      font-size: 0.98rem;
+      font-weight: 500;
+      border-radius: 6px;
+      transition: all 0.2s ease-in-out;
     }
 
-    .container-fluid {
-      padding-left: 10px;
-      padding-right: 10px;
+    .custom-navbar .nav-link:hover,
+    .custom-navbar .nav-link:focus {
+      color: #38bdf8 !important;
+      background: rgba(255, 255, 255, 0.08);
     }
 
-    /* Prevent links from stacking */
-    .navbar-expand-lg .navbar-nav {
-      display: flex;
-      flex-direction: row;
-      align-items: center;
-      gap: 10px;
+    .custom-navbar .nav-link.active {
+      color: #ffffff !important;
+      background: rgba(56, 189, 248, 0.2);
+      font-weight: 600;
+    }
+
+    /* Dropdown Menu Styling */
+    .custom-navbar .dropdown-menu {
+      background-color: #1e1045;
+      border: 1px solid #43288c;
+      border-radius: 8px;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+      padding: 6px;
+      margin-top: 8px;
+    }
+
+    .custom-navbar .dropdown-item {
+      color: rgba(255, 255, 255, 0.9);
+      padding: 8px 14px;
+      border-radius: 6px;
+      font-size: 0.92rem;
+      transition: all 0.15s ease;
+    }
+
+    .custom-navbar .dropdown-item:hover {
+      background-color: #321873;
+      color: #38bdf8;
+    }
+
+    .custom-navbar .dropdown-divider {
+      border-top: 1px solid #3c227d;
+      margin: 4px 0;
+    }
+
+    /* User Action Buttons */
+    .btn-settings {
+      color: rgba(255, 255, 255, 0.8) !important;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 6px;
+      padding: 5px 12px;
+      font-size: 0.88rem;
+      transition: all 0.2s;
+    }
+    .btn-settings:hover {
+      background: rgba(255, 255, 255, 0.15);
+      color: #ffffff !important;
+      border-color: rgba(255, 255, 255, 0.4);
+    }
+
+    .btn-logout {
+      border-color: #f43f5e;
+      color: #fda4af;
+      font-size: 0.88rem;
+      font-weight: 500;
+      padding: 5px 14px;
+      border-radius: 6px;
+      transition: all 0.2s;
+    }
+    .btn-logout:hover {
+      background-color: #f43f5e;
+      color: #ffffff;
+      box-shadow: 0 0 10px rgba(244, 63, 94, 0.4);
     }
   </style>
 </head>
 <body>
 
-  <nav class="navbar navbar-expand-lg navbar-dark bg-primary" style="height: 80px;">
+  <nav class="navbar navbar-expand-lg navbar-dark custom-navbar">
     <div class="container-fluid">
-      <a class="navbar-brand text-white" href="/">
+      <a class="navbar-brand text-white me-3" href="/">
         <img src="{{ url_for('static', filename='images/magicbanner.jpeg') }}" alt="Magic Rota Logo">
       </a>
       <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
         <span class="navbar-toggler-icon"></span>
       </button>
       <div class="collapse navbar-collapse justify-content-between" id="navbarNav">
-        <ul class="navbar-nav">
-          <li class="nav-item"><a class="nav-link text-white fs-5" href="/departments">Departments</a></li>
-          <li class="nav-item"><a class="nav-link text-white fs-5" href="/members">Staff</a></li>
-          <li class="nav-item"><a class="nav-link text-white fs-5" href="/on_leave">Staff On Leave</a></li>
-          <li class="nav-item"><a class="nav-link text-white fs-5" href="/shifts">Shifts</a></li>
-          <li class="nav-item"><a class="nav-link text-white fs-5" href="/generate_rota">Generate Rota</a></li>
-          <li class="nav-item"><a class="nav-link text-white fs-5" href="/rotas">Rotas</a></li>
-          <li class="nav-item"><a class="nav-link text-white fs-5" href="/org_details">Settings</a></li>
-          <li class="nav-item"><a class="nav-link text-white fs-5" href="/temp_log">Temperature</a></li>
-          <li class="nav-item"><a class="nav-link text-white fs-5" href="/users">Users</a></li>
+        <ul class="navbar-nav me-auto mb-2 mb-lg-0 align-items-center">
+          <li class="nav-item"><a class="nav-link" href="/departments">Departments</a></li>
+          <li class="nav-item"><a class="nav-link" href="/members">Staff</a></li>
+          <li class="nav-item"><a class="nav-link fw-bold text-info" href="/generate_rota">Generate Rota</a></li>
+          <li class="nav-item"><a class="nav-link" href="/rotas">Rotas</a></li>
+
+          <!-- Shift Management Dropdown -->
+          <li class="nav-item dropdown">
+            <a class="nav-link dropdown-toggle" href="#" id="workforceDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+              Shift Management
+            </a>
+            <ul class="dropdown-menu" aria-labelledby="workforceDropdown">
+              <li><a class="dropdown-item" href="/on_leave">🏖️ Staff On Leave</a></li>
+              <li><a class="dropdown-item" href="/swaps">🔄 Shift Swaps</a></li>
+              <li><a class="dropdown-item" href="/preferences">🎯 Staff Preferences</a></li>
+              <li><a class="dropdown-item" href="/float_pool">🏊 Float Pool</a></li>
+            </ul>
+          </li>
+
+          <!-- Analytics & Compliance Dropdown -->
+          <li class="nav-item dropdown">
+            <a class="nav-link dropdown-toggle" href="#" id="auditDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+              Analytics &amp; Compliance
+            </a>
+            <ul class="dropdown-menu" aria-labelledby="auditDropdown">
+              <li><a class="dropdown-item" href="/analytics">📊 Workforce Analytics</a></li>
+              <li><a class="dropdown-item" href="/temp_log">🌡️ Pharmacy Temperature</a></li>
+              <li><a class="dropdown-item" href="/audit_log">📋 Audit Trail &amp; Log</a></li>
+              <li><hr class="dropdown-divider"></li>
+              <li><a class="dropdown-item" href="/ical/my">📅 My iCal Calendar Feed</a></li>
+            </ul>
+          </li>
         </ul>
 
-        <ul class="navbar-nav">
+        <ul class="navbar-nav align-items-center">
           {% if current_user.is_authenticated %}
-            <li class="nav-item"><a class="nav-link text-white fs-5" href="/logout">Logout</a></li>
+            <li class="nav-item me-2">
+              <a class="nav-link btn-settings" href="/org_details">⚙️ Settings</a>
+            </li>
+            <li class="nav-item">
+              <a class="btn btn-logout ms-1" href="/logout">Logout</a>
+            </li>
           {% else %}
-            <li class="nav-item"><a class="nav-link text-white fs-5" href="/login">Login</a></li>
-            <li class="nav-item"><a class="nav-link text-white fs-5" href="/register">Register</a></li>
+            <li class="nav-item me-2"><a class="nav-link" href="/login">Login</a></li>
+            <li class="nav-item"><a class="btn btn-info btn-sm ms-1" href="/register">Register</a></li>
           {% endif %}
         </ul>
       </div>

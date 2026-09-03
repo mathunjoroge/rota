@@ -2,74 +2,107 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Temperature Log</title>
+    <title>Pharmacy Temperature Log</title>
     <style>
+        body { font-family: Arial, sans-serif; font-size: 11px; }
         .table, .table th, .table td {
             border: 1px solid black;
+            border-collapse: collapse;
             text-align: center;
+            padding: 4px 6px;
         }
-        .table {
-            padding-top: 5px;
-        }
-        .org-details img {
-            width: 150px; /* Adjust this value as needed */
-            height: auto; /* Maintain aspect ratio */
-            margin-bottom: 20px; /* Space below the image */
-        }
+        .table { width: 100%; margin-top: 10px; }
+        .table th { background-color: #e9ecef; }
+        .ok { background-color: #d4edda; }
+        .warning { background-color: #fff3cd; }
+        .critical { background-color: #f8d7da; font-weight: bold; }
+        .header-info { margin-bottom: 10px; }
+        .compliance-note { font-size: 9px; color: #666; margin-top: 15px; border-top: 1px solid #ccc; padding-top: 5px; }
+        h1 { font-size: 16px; }
+        h3 { font-size: 13px; margin: 5px 0; }
     </style>
 </head>
 <body>
-
     {% include "doc_header.html" %}
 
-    <h1>Temperature Log</h1>
-    <p>From: {{ start_date }} To: {{ end_date }}</p>
-    <div class="container">
-        <table class="table table-bordered table-striped">
-            <thead>
+    <h1>🏥 Pharmacy Room Temperature Log</h1>
+    <div class="header-info">
+        <p><strong>Period:</strong> {{ start_date }} to {{ end_date }}</p>
+        <p><strong>Acceptable Range:</strong> {{ temp_min }}°C – {{ temp_max }}°C (WHO TRS 961 / PPB Guidelines)</p>
+        <p><strong>Location:</strong> Kisumu, Kenya &middot; Data: OpenWeatherMap (outdoor) adjusted −5°C for indoor estimate</p>
+    </div>
+
+    <table class="table">
+        <thead>
+            <tr>
+                <th rowspan="2">Date</th>
+                <th colspan="5">AM (8:00 AM)</th>
+                <th colspan="5">PM (2:00 PM)</th>
+            </tr>
+            <tr>
+                <th>Time</th>
+                <th>Outdoor °C</th>
+                <th>Room °C</th>
+                <th>Status</th>
+                <th>Initials</th>
+                <th>Time</th>
+                <th>Outdoor °C</th>
+                <th>Room °C</th>
+                <th>Status</th>
+                <th>Initials</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for date, times in grouped_logs.items() %}
                 <tr>
-                    <th>Date</th>
-                    <th>AM Time</th>
-                    <th>Recorded Temp</th>
-                    <th>Estimated Room Temp</th>
-                    <th>Acceptable</th>
-                    <th>Initials</th>
-                    <th>PM Time</th>
-                    <th>Recorded Temp</th>
-                    <th>Estimated Room Temp</th>
-                    <th>Acceptable</th>
-                    <th>Initials</th>
+                    <td><strong>{{ date.strftime('%d-%m-%Y') }}</strong></td>
+                    {% if times['AM'] %}
+                        <td>8:00 AM</td>
+                        <td>{{ times['AM'].recorded_temp | round(1) }}</td>
+                        {% set room = times['AM'].estimated_room %}
+                        {% if room < temp_min or room > 30 %}
+                            <td class="critical">{{ room | round(1) }}</td>
+                            <td class="critical">CRITICAL</td>
+                        {% elif room > temp_max %}
+                            <td class="warning">{{ room | round(1) }}</td>
+                            <td class="warning">WARNING</td>
+                        {% else %}
+                            <td class="ok">{{ room | round(1) }}</td>
+                            <td class="ok">OK</td>
+                        {% endif %}
+                        <td>{{ times['AM'].initials }}</td>
+                    {% else %}
+                        <td colspan="5" style="text-align:center;">No AM Log</td>
+                    {% endif %}
+                    
+                    {% if times['PM'] %}
+                        <td>2:00 PM</td>
+                        <td>{{ times['PM'].recorded_temp | round(1) }}</td>
+                        {% set room = times['PM'].estimated_room %}
+                        {% if room < temp_min or room > 30 %}
+                            <td class="critical">{{ room | round(1) }}</td>
+                            <td class="critical">CRITICAL</td>
+                        {% elif room > temp_max %}
+                            <td class="warning">{{ room | round(1) }}</td>
+                            <td class="warning">WARNING</td>
+                        {% else %}
+                            <td class="ok">{{ room | round(1) }}</td>
+                            <td class="ok">OK</td>
+                        {% endif %}
+                        <td>{{ times['PM'].initials }}</td>
+                    {% else %}
+                        <td colspan="5" style="text-align:center;">No PM Log</td>
+                    {% endif %}
                 </tr>
-            </thead>
-            <tbody>
-                {% for date, times in grouped_logs.items() %}
-                    <tr>
-                        <td>{{ date.strftime('%d-%m-%Y') }}</td>
-                        {% if times['AM'] %}
-                            <td>8:00 AM</td>
-                            <td>{{ times['AM'].recorded_temp | round(2) }} &deg;C</td>
-                            <td>{{ times['AM'].estimated_room | round(2) }} &deg;C</td>
-                            <td>{{ 'Yes' if times['AM'].acceptable else 'No' }}</td>
-                            <td>{{ times['AM'].initials }}</td>
-                        {% else %}
-                            <td colspan="5" class="text-center">No AM Log</td>
-                        {% endif %}
-                        
-                        {% if times['PM'] %}
-                            <td>2:00 PM</td>
-                            <td>{{ times['PM'].recorded_temp | round(2) }} &deg;C</td>
-                            <td>{{ times['PM'].estimated_room | round(2) }} &deg;C</td>
-                            <td>{{ 'Yes' if times['PM'].acceptable else 'No' }}</td>
-                            <td>{{ times['PM'].initials }}</td>
-                        {% else %}
-                            <td colspan="5" class="text-center">No PM Log</td>
-                        {% endif %}
-                    </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-        <div><p>Generated from Magic Rota&copy;</p>
-            <p>Data feched from <a href="https://openweathermap.org/">openweathermap</a></p></div>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <div class="compliance-note">
+        <p><strong>Reviewed by:</strong> _________________________ &nbsp;&nbsp; <strong>Signature:</strong> _________________________ &nbsp;&nbsp; <strong>Date:</strong> _____________</p>
+        <p><strong>Reference:</strong> WHO Technical Report Series No. 961 (Annex 9) – Storage of Pharmaceutical Products.
+        Kenya Pharmacy &amp; Poisons Board (PPB) – Good Distribution Practice Guidelines.</p>
+        <p>Generated from Magic Rota&copy; &middot; Outdoor data from <a href="https://openweathermap.org/">OpenWeatherMap</a></p>
     </div>
 </body>
 </html>

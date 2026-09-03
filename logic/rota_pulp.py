@@ -70,9 +70,23 @@ def generate_rota_with_pulp(all_members, start_date, period_weeks, first_night_o
     min_shifts = LpVariable("MinSpecialShifts", lowBound=0, cat='Integer')
     max_shifts = LpVariable("MaxSpecialShifts", lowBound=0, cat='Integer')
 
-    # 4. OBJECTIVE FUNCTION: Minimize the gap between the most and least worked member
+    # 4. OBJECTIVE FUNCTION: Minimize shift imbalance + penalize preferred-off clashes
     # =================================================================================
-    model += (max_shifts - min_shifts), "Minimize_Shift_Imbalance"
+    # Fetch active staff preferences for members
+    from models.models import StaffPreference
+    import json
+
+    pref_penalties = []
+    for w in weeks:
+        week_start = start_date + timedelta(days=w * 7)
+        prefs = StaffPreference.query.filter_by(week_start=week_start).all()
+        for p in prefs:
+            if p.member and p.member.name in member_names:
+                # Soft penalty for assigning evening/night shift on preferred-off week
+                for s in ['evening', 'night']:
+                    pref_penalties.append(10 * assign[p.member.name][s][w])
+
+    model += (max_shifts - min_shifts) + lpSum(pref_penalties), "Minimize_Shift_Imbalance_And_Preference_Clashes"
 
     # 5. CONSTRAINTS
     # =================================================================================

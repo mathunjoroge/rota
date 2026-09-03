@@ -1,0 +1,91 @@
+{% extends 'base.html' %}
+
+{% block title %}Cross-Department Float Pool{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+            <h2 class="mb-1">🏥 Cross-Department Float Pool</h2>
+            <p class="text-muted mb-0">Eligible staff available to float across departments during emergency shortfalls.</p>
+        </div>
+    </div>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+          </div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    <div class="row g-4">
+        <!-- Active Float Staff List -->
+        <div class="col-md-7">
+            <div class="card shadow-sm">
+                <div class="card-header bg-success text-white fw-bold d-flex justify-content-between align-items-center">
+                    <span>🏊 Active Float Pool Members ({{ floaters|length }})</span>
+                </div>
+                <div class="card-body p-0">
+                    <table class="table table-bordered table-striped mb-0 align-middle">
+                        <thead class="table-dark">
+                            <tr>
+                                <th>Staff Name</th>
+                                <th>Primary Department</th>
+                                <th>Float Status</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for m in floaters %}
+                            <tr>
+                                <td><strong>{{ m.name }}</strong></td>
+                                <td><span class="badge bg-secondary">{{ m.department.name if m.department else 'General' }}</span></td>
+                                <td><span class="badge bg-success">🟢 Eligible to Float</span></td>
+                                <td>
+                                    <form method="POST" action="{{ url_for('float_pool.float_pool') }}" class="d-inline">
+                                        <input type="hidden" name="member_id" value="{{ m.id }}">
+                                        <input type="hidden" name="action" value="disable">
+                                        <button type="submit" class="btn btn-sm btn-outline-danger">Remove</button>
+                                    </form>
+                                </td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="4" class="text-center text-muted p-4">No staff members currently designated as float pool eligible.</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Add Staff to Float Pool Form -->
+        <div class="col-md-5">
+            <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white fw-bold">
+                    ➕ Add Staff to Float Pool
+                </div>
+                <div class="card-body">
+                    <form method="POST" action="{{ url_for('float_pool.float_pool') }}">
+                        <input type="hidden" name="action" value="enable">
+                        <div class="mb-3">
+                            <label for="member_id" class="form-label fw-bold">Select Staff Member</label>
+                            <select name="member_id" id="member_id" class="form-select" required>
+                                {% for m in all_members if not m.can_float %}
+                                    <option value="{{ m.id }}">{{ m.name }} ({{ m.department.code if m.department else 'GEN' }})</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <button type="submit" class="btn btn-primary w-100">Designate as Float Staff</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
