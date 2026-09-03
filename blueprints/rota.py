@@ -3,7 +3,7 @@ import pytz
 from datetime import datetime, timedelta
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session, abort
 from flask_login import login_required
-from forms.org_form import EditRotaForm
+from blueprints.forms import EditRotaForm
 from models.models import db, Rota, Team, ShiftHistory, MemberShiftState
 from logic.rota_logic import generate_period_rota
 from blueprints.members import requires_level

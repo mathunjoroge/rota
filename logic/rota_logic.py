@@ -161,7 +161,16 @@ class RotaOptimizer:
 
         admins, non_admins = split_admins(self.all_members)
         shift_history = {m.name: {'evening': 0, 'night': 0} for m in non_admins}
-        last_night_shift_member_name = None # Start with no one having worked the last night shift
+
+        # --- MODIFIED SECTION START ---
+        # Check for a previous rota to ensure continuity for the first 'night_off'.
+        last_rota_entry = db.session.query(Rota).filter(Rota.date < self.start_date).order_by(Rota.date.desc()).first()
+        if last_rota_entry and last_rota_entry.shift_8_8:
+            last_night_shift_member_name = last_rota_entry.shift_8_8
+            logger.info(f"Continuity from previous rota: Assigning {last_night_shift_member_name} as the first night_off.")
+        else:
+            last_night_shift_member_name = None # Start fresh if no history exists
+        # --- MODIFIED SECTION END ---
 
         for week in range(self.period_weeks):
             current_date = self.start_date + timedelta(days=week * self.week_duration_days)
@@ -214,6 +223,7 @@ class RotaOptimizer:
         logger.info(f"Successfully generated optimized Rota ID: {self.rota_id}.")
         display_rota_table(self.rota_id)
         return [], self.rota_id
+
 
 
 # ############################################################################
@@ -580,6 +590,20 @@ def generate_period_rota(eligible_members, start_date, period_weeks, week_durati
     db.session.commit()
     
     admins, non_admins = split_admins(eligible_members)
+    
+    # --- MODIFIED SECTION START ---
+    # If a first night_off member isn't specified, check the last rota for continuity.
+    if not first_night_off_member:
+        last_rota_entry = db.session.query(Rota).filter(Rota.date < start_date).order_by(Rota.date.desc()).first()
+        if last_rota_entry and last_rota_entry.shift_8_8:
+            last_night_worker_name = last_rota_entry.shift_8_8
+            # Find the full member object from the current list of eligible members.
+            potential_member = next((m for m in eligible_members if m.name == last_night_worker_name), None)
+            if potential_member:
+                first_night_off_member = potential_member
+                logger.info(f"Continuity from previous rota: Assigning {first_night_off_member.name} as the first night_off.")
+    # --- MODIFIED SECTION END ---
+    
     last_night_shift_member = None
     
     # Seed initial states.

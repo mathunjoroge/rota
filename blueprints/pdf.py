@@ -1,9 +1,8 @@
-from flask import Blueprint, render_template, request, redirect, url_for, Response
-from datetime import date, datetime,timedelta
+from flask import Blueprint, render_template, Response
+from datetime import date, datetime, timedelta
 from io import BytesIO
-from logic.leave_logic import save_leave_logic, get_leaves_on_date, delete_leave_logic, edit_leave_logic
 from blueprints.routes import login_required
-from models.models import Leave, Rota, OrgDetails
+from models.models import Rota, OrgDetails
 from xhtml2pdf import pisa
 import logging
 
@@ -11,7 +10,6 @@ import logging
 logging.basicConfig(level=logging.ERROR)
 
 # Blueprints
-leave_bp = Blueprint('leave', __name__)
 pdf_bp = Blueprint('pdf', __name__)
 
 # Utility function to calculate start and end dates
@@ -25,32 +23,6 @@ def calculate_date_range(rotas):
     except Exception as e:
         logging.error(f"Error calculating date range: {e}")
         return None, None
-
-# Leave routes
-@leave_bp.route('/save_leave/<int:member_id>', methods=['POST'])
-@login_required
-def save_leave(member_id):
-    return save_leave_logic(member_id, request.form)
-
-@leave_bp.route('/on_leave')
-@login_required
-def on_leave():
-    leaves = Leave.query.all()
-    current_date = date.today()
-    return render_template('on_leave.html', leaves=leaves, current_date=current_date)
-
-@leave_bp.route('/delete_leave/<int:leave_id>', methods=['POST'])
-@login_required
-def delete_leave(leave_id):
-    return delete_leave_logic(leave_id)
-
-@leave_bp.route('/edit_leave/<int:leave_id>', methods=['GET', 'POST'])
-@login_required
-def edit_leave(leave_id):
-    if request.method == 'POST':
-        return edit_leave_logic(leave_id, request.form)
-    leave = Leave.query.get_or_404(leave_id)
-    return render_template('edit_leave.html', leave=leave)
 
 # PDF generation routes
 @pdf_bp.route('/export_pdf')

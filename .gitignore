@@ -1,2 +1,7 @@
 # .gitignore
 .env
+venv/
+instance/
+__pycache__/
+*.pyc
+*.pyo

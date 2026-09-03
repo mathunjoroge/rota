@@ -78,35 +78,3 @@ def edit_leave_logic(leave_id, form):
     db.session.commit()
     flash("Leave updated successfully.", 'success')
     return redirect(url_for('leave.on_leave'))
-
-class Leave(db.Model):
-    # existing fields and methods
-
-    def days_taken(self):
-        """Calculate the number of weekdays (Monday to Friday) taken."""
-        if self.start_date and self.end_date:
-            total_days_taken = 0
-            current_date = self.start_date
-            while current_date <= self.end_date:
-                if current_date.weekday() < 5:  # Weekday (Monday=0 to Friday=4)
-                    total_days_taken += 1
-                current_date += timedelta(days=1)
-            return total_days_taken
-        return 0
-
-    def days_remaining(self):
-        """Calculate the number of leave days remaining (Monday to Friday)."""
-        if self.start_date > date.today():
-            # Leave hasn't started; remaining days are the same as total days taken
-            return self.days_taken()
-        elif self.start_date <= date.today() <= self.end_date:
-            # Leave has started; count remaining weekdays from today to end_date
-            total_remaining_days = 0
-            current_date = date.today()
-            while current_date <= self.end_date:
-                if current_date.weekday() < 5:  # Weekday (Monday=0 to Friday=4)
-                    total_remaining_days += 1
-                current_date += timedelta(days=1)
-            return total_remaining_days
-        # Leave has ended
-        return 0

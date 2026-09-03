@@ -13,7 +13,7 @@ from collections import defaultdict
 temp_bp = Blueprint('temp_log', __name__)
 
 # Load configuration from environment
-API_KEY = os.getenv('OPENWEATHERMAP_API_KEY', '6d6bac6176e6352bf13dfee489537206')
+API_KEY = os.getenv('OPENWEATHERMAP_API_KEY')
 LOCATION = 'kombewa'
 
 def fetch_temperature():
@@ -74,12 +74,6 @@ def schedule_tasks(app):
         trigger='cron',
         hour=14,  # 2:00 PM EAT
         minute=0  # Run at 2:00pm
-    )
-    scheduler.add_job(
-        id='record_temp_test',
-        func=lambda: record_temperature(app, 'TEST'),
-        trigger='date',
-        run_date=datetime.now().replace(second=0, microsecond=0)  # Run immediately for testing
     )
     scheduler.start()
 
