@@ -77,9 +77,9 @@ def generate_balanced_rota_with_cycles(start_date, period_weeks):
                 date=week_start,
                 week_range=week_range,
                 shift_8_5=",".join(assignments["morning"]),
-                shift_5_8=assignments["evening"],
-                shift_8_8=assignments["night"],
-                night_off=assignments["night_off"],
+                shift_5_8=assignments["evening"] or "",
+                shift_8_8=assignments["night"] or "",
+                night_off=assignments["night_off"] or "",
             )
             db.session.add(rota)
             db.session.commit()

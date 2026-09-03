@@ -20,36 +20,39 @@
     
     <!-- Form to generate or delete rota -->
     <form action="{{ url_for('rota.generate_rota') }}" method="POST">
-        <div class="container" style="width: 50%;">
-            <div class="row">
-                <div class="col-md-6">
-                    <label for="start_date">Start Date:</label>
+        <div class="container" style="width: 60%;">
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <label for="dept_id" class="form-label fw-bold">Department:</label>
+                    <select name="department_id" class="form-select" required>
+                        <option value="">All Departments (Global)</option>
+                        {% for d in departments %}
+                            <option value="{{ d.id }}" {% if selected_dept_id == d.id %}selected{% endif %}>{{ d.name }} ({{ d.code }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label for="start_date" class="form-label fw-bold">Start Date:</label>
                     <input type="date" class="form-control" name="start_date" required>
                 </div>
-                <div class="col-md-6">
-                    <label for="end_date">End Date:</label>
+                <div class="col-md-4">
+                    <label for="end_date" class="form-label fw-bold">End Date:</label>
                     <input type="date" class="form-control" name="end_date" required>
                 </div>
             </div>
+            <div class="row mt-3">
+                <div class="col-md-4">
+                    <button type="submit" name="action" value="generate" class="btn btn-primary w-100">Generate Rota</button>
+                </div>
+                <div class="col-md-4">
+                    <button type="submit" formaction="{{ url_for('rota.delete_rota') }}" class="btn btn-danger w-100">Delete Rota</button>
+                </div>
+                <div class="col-md-4">
+                    <a href="{{ url_for('rota.select_night_off') }}" class="btn btn-success w-100">Night Off</a>
+                </div>
+            </div>
         </div>
-<div class="container" style="width: 49.5%;">
-    <div class="row mt-3">
-        <div class="col-md-4">
-            <form action="{{ url_for('rota.generate_rota') }}" method="POST">
-                <button type="submit" name="action" value="generate" class="btn btn-primary">Generate Rota</button>
-            </form>
-        </div>
-        <div class="col-md-4">
-            <form action="{{ url_for('rota.delete_rota') }}" method="POST">
-                <button type="submit" class="btn btn-danger">Delete Rota</button>
-            </form>
-        </div>
-  
-    <div class="col-md-4">
-            <a href="{{ url_for('rota.select_night_off') }}" class="btn btn-success">Night Off</a>
-        </div>
-    </div>
-</div>
+    </form>
 <div class="container mt-5">
     <h2 class="text-white bg-primary p-2">Generated Rotas</h2>
 

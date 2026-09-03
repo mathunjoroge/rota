@@ -4,8 +4,8 @@ from datetime import datetime, timedelta
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session, abort
 from flask_login import login_required
 from blueprints.forms import EditRotaForm
-from models.models import db, Rota, Team, ShiftHistory, MemberShiftState
-from logic.rota_logic import generate_period_rota
+from models.models import db, Rota, Team, ShiftHistory, MemberShiftState, Department
+from logic.rota_pulp import generate_rota_with_pulp
 from blueprints.members import requires_level
 
 logging.basicConfig(level=logging.ERROR)
@@ -15,6 +15,9 @@ rota_bp = Blueprint('rota', __name__)
 @rota_bp.route('/generate_rota', methods=['GET', 'POST'])
 @login_required
 def generate_rota():
+    dept_id = request.args.get('dept_id', type=int) or request.form.get('department_id', type=int)
+    departments = Department.query.all()
+
     if request.method == 'POST':
         action = request.form.get('action')
         if action == 'generate':
@@ -30,21 +33,29 @@ def generate_rota():
                 if period_weeks < 1:
                     flash("Period must include at least one week.", 'error')
                     return redirect(url_for('rota.generate_rota'))
-                eligible_members = Team.query.all()
-                if len(eligible_members) < 7:
-                    flash("Not enough members to generate a complete rota.", 'error')
-                    return redirect(url_for('rota.generate_rota'))
+
+                if dept_id:
+                    eligible_members = Team.query.filter_by(department_id=dept_id).all()
+                else:
+                    eligible_members = Team.query.all()
+
+                if len(eligible_members) < 3:
+                    flash("Not enough members in this department to generate a complete rota (minimum 3 required).", 'error')
+                    return redirect(url_for('rota.generate_rota', dept_id=dept_id if dept_id else None))
+
                 first_night_off_member_id = session.pop('first_night_off_member_id', None)
                 first_night_off_member = Team.query.get(first_night_off_member_id) if first_night_off_member_id else None
-                night_shift_members, rota_id = generate_period_rota(
-                    eligible_members=eligible_members,
+                
+                _, rota_id = generate_rota_with_pulp(
+                    all_members=eligible_members,
                     start_date=start_date,
                     period_weeks=period_weeks,
-                    week_duration_days=7,
-                    reset_history_after_weeks=6,
-                    use_db_for_history=True,
-                    first_night_off_member=first_night_off_member
+                    first_night_off_member=first_night_off_member,
+                    department_id=dept_id
                 )
+                if rota_id is None:
+                    flash("Could not generate a fair rota. Please check constraints and try again.", 'error')
+                    return redirect(url_for('rota.generate_rota', dept_id=dept_id if dept_id else None))
                 flash(f"Rota generated successfully with ID {rota_id} for {period_weeks} weeks.", 'success')
                 return redirect(url_for('rota.rota_detail', rota_id=rota_id))
             except ValueError as e:
@@ -54,9 +65,10 @@ def generate_rota():
                 logging.error(f"Server error generating rota: {str(e)}")
                 flash(f"Server error: {str(e)}", 'error')
                 return redirect(url_for('rota.generate_rota'))
+
     last_rota = Rota.query.order_by(Rota.date.desc()).first()
     rotas = Rota.query.filter_by(rota_id=last_rota.rota_id).order_by(Rota.date).all() if last_rota else []
-    return render_template('rota.html', rotas=rotas)
+    return render_template('rota.html', rotas=rotas, departments=departments, selected_dept_id=dept_id)
 
 @rota_bp.route('/delete_rota', methods=['POST'])
 @login_required

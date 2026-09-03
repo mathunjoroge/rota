@@ -19,9 +19,26 @@
   {% endif %}
 {% endwith %}
 
-<!-- Add Shift Form -->
-<form method="POST" action="/shifts" class="mb-4">
-    <div class="row">
+<!-- Department Filter & Add Shift Form -->
+<div class="card p-3 mb-4 bg-light">
+    <div class="row g-2 align-items-center mb-3">
+        <div class="col-md-6">
+            <form method="GET" action="{{ url_for('shifts.shifts') }}" class="d-flex align-items-center">
+                <label for="deptFilterShifts" class="form-label me-2 mb-0 fw-bold">Filter Department:</label>
+                <select id="deptFilterShifts" name="dept_id" class="form-select me-2" onchange="this.form.submit()">
+                    <option value="">All Departments</option>
+                    {% for d in departments %}
+                        <option value="{{ d.id }}" {% if selected_dept_id == d.id %}selected{% endif %}>{{ d.name }} ({{ d.code }})</option>
+                    {% endfor %}
+                </select>
+                {% if selected_dept_id %}
+                    <a href="{{ url_for('shifts.shifts') }}" class="btn btn-outline-secondary btn-sm">Clear</a>
+                {% endif %}
+            </form>
+        </div>
+    </div>
+
+    <form method="POST" action="/shifts" class="row g-2">
         <div class="col-md-3">
             <input type="text" name="shift_name" class="form-control" placeholder="Shift Name" required>
         </div>
@@ -37,16 +54,24 @@
         <div class="col-md-2">
             <input type="number" name="min_members" class="form-control" placeholder="Min Members" required>
         </div>
-        <div class="col-md-1">
+        <div class="col-md-3 mt-2">
+            <select name="department_id" class="form-select" required>
+                {% for d in departments %}
+                    <option value="{{ d.id }}" {% if selected_dept_id == d.id %}selected{% endif %}>{{ d.name }} ({{ d.code }})</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-3 mt-2">
             <button type="submit" class="btn btn-primary w-100">Add Shift</button>
         </div>
-    </div>
-</form>
+    </form>
+</div>
 
-<h2 class="mt-4 text-white bg-primary p-2">shits</h2>
-<table class="table table-bordered">
-    <thead>
+<h2 class="mt-4 text-white bg-primary p-2">Shifts</h2>
+<table class="table table-bordered align-middle">
+    <thead class="table-light">
         <tr>
+            <th>Department</th>
             <th>Shift Name</th>
             <th>Start Time</th>
             <th>End Time</th>
@@ -58,7 +83,14 @@
     <tbody>
         {% for shift in shifts %}
         <tr>
-            <td>{{ shift.name }}</td>
+            <td>
+                {% if shift.department %}
+                    <span class="badge bg-info text-dark">{{ shift.department.code }} - {{ shift.department.name }}</span>
+                {% else %}
+                    <span class="badge bg-light text-dark">Global / All</span>
+                {% endif %}
+            </td>
+            <td><strong>{{ shift.name }}</strong></td>
             <td>{{ shift.start_time.strftime('%H:%M') }}</td>
             <td>{{ shift.end_time.strftime('%H:%M') }}</td>
             <td>{{ shift.max_members }}</td>
@@ -107,6 +139,14 @@
                                     class="form-control" 
                                     value="{{ shift.name }}" 
                                     required>
+                            </div>
+                            <div class="mb-3">
+                                <label for="departmentId{{ shift.id }}" class="form-label">Department</label>
+                                <select id="departmentId{{ shift.id }}" name="department_id" class="form-select" required>
+                                    {% for d in departments %}
+                                        <option value="{{ d.id }}" {% if shift.department_id == d.id %}selected{% endif %}>{{ d.name }} ({{ d.code }})</option>
+                                    {% endfor %}
+                                </select>
                             </div>
                             <div class="mb-3">
                                 <label for="startTime{{ shift.id }}" class="form-label">Start Time</label>

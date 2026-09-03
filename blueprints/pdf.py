@@ -2,7 +2,7 @@ from flask import Blueprint, render_template, Response
 from datetime import date, datetime, timedelta
 from io import BytesIO
 from blueprints.routes import login_required
-from models.models import Rota, OrgDetails
+from models.models import Rota, OrgDetails, Leave
 from xhtml2pdf import pisa
 import logging
 

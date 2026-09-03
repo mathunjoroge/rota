@@ -24,32 +24,35 @@ def requires_level(level):
 
 members_bp = Blueprint('members', __name__)
 
-@members_bp.route('/members', methods=['GET', 'POST'])
+@members_bp.route('/members', methods=['GET'])
 @login_required
-
 def manage_members():
-    teams = Team.query.all()
-    return render_template('members.html', teams=teams)
+    dept_id = request.args.get('dept_id', type=int)
+    departments = Department.query.all()
+    if dept_id:
+        teams = Team.query.filter_by(department_id=dept_id).all()
+    else:
+        teams = Team.query.all()
+    return render_template('members.html', teams=teams, departments=departments, selected_dept_id=dept_id)
 
 @members_bp.route('/add_member', methods=['GET', 'POST'])
 @login_required
 @requires_level(1)  # Only users with level 1 (Admin) can access this route
 def add_member():
     if request.method == 'POST':
-        # Handle form submission
-        name = request.form.get('name')  # Use get() to avoid KeyError
-        is_admin = request.form.get('is_admin', 0)  # Default to 0 if not provided
+        name = request.form.get('name')
+        is_admin = request.form.get('is_admin', 0)
+        dept_id = request.form.get('department_id', type=int)
 
         if name:
-            # Create and save the new member
-            member = Team(name=name, is_admin=int(is_admin))
+            member = Team(name=name, is_admin=int(is_admin), department_id=dept_id)
             db.session.add(member)
             db.session.commit()
             flash('Member added successfully!', 'success')
         else:
             flash('Name is required to add a member.', 'danger')
 
-        return redirect(url_for('members.manage_members'))
+        return redirect(url_for('members.manage_members', dept_id=dept_id if dept_id else None))
 
 
 @members_bp.route('/edit_member/<int:member_id>', methods=['GET', 'POST'])
@@ -59,14 +62,23 @@ def edit_member(member_id):
     member = Team.query.get_or_404(member_id)
     if request.method == 'POST':
         new_name = request.form.get('name')
-        new_is_admin = request.form.get('is_admin')  # Get is_admin value from the form
+        new_is_admin = request.form.get('is_admin')
+        dept_id = request.form.get('department_id', type=int)
 
-        if new_name:
+        if new_name and new_is_admin is not None:
             member.name = new_name
-            member.is_admin = int(new_is_admin)  # Convert is_admin to integer
+            member.is_admin = int(new_is_admin)
+            if dept_id:
+                member.department_id = dept_id
             db.session.commit()
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return jsonify({'status': 'success'})
             flash('Member updated successfully!', 'success')
-            return redirect(url_for('members.manage_members'))  # Redirect to the members page
+            return redirect(url_for('members.manage_members'))
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return jsonify({'status': 'error', 'message': 'Missing data'}), 400
+        flash('Failed to update member.', 'danger')
+        return redirect(url_for('members.manage_members'))
 
 
 

@@ -3,7 +3,7 @@ from flask_login import LoginManager, current_user
 from dotenv import load_dotenv
 import os
 from datetime import timedelta
-from models.models import db, User
+from models.models import db, User, init_db_departments
 from blueprints.org import org_bp
 from blueprints.temp_log import temp_bp, schedule_tasks
 from blueprints.members import members_bp
@@ -11,8 +11,8 @@ from blueprints.shifts import shifts_bp
 from blueprints.leave import leave_bp
 from blueprints.rota import rota_bp
 from blueprints.pdf import pdf_bp
+from blueprints.department import department_bp
 from blueprints import auth as auth_bp
-
 
 # Load environment variables from .env file
 load_dotenv()
@@ -29,7 +29,7 @@ app.permanent_session_lifetime = timedelta(minutes=30)
 db.init_app(app)
 login_manager = LoginManager(app)
 login_manager.login_view = 'auth.login'
-login_manager.login_message_category = 'info'
+login_message_category = 'info'
 
 @login_manager.user_loader
 def load_user(user_id):
@@ -43,10 +43,12 @@ def update_session_timeout():
 
 with app.app_context():
     db.create_all()
+    init_db_departments()
     schedule_tasks(app)  # Schedule the temperature recording tasks
 
 # Register blueprints
 app.register_blueprint(org_bp)
+app.register_blueprint(department_bp)
 app.register_blueprint(members_bp)
 app.register_blueprint(shifts_bp)
 app.register_blueprint(leave_bp)

@@ -1,0 +1,166 @@
+{% extends 'base.html' %}
+
+{% block title %}Manage Departments{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h1 class="mb-4">Institution Departments</h1>
+    
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <div class="alert-container">
+          {% for category, message in messages %}
+            <div class="alert alert-{{ category }}" role="alert">
+              {{ message }}
+            </div>
+          {% endfor %}
+        </div>
+      {% endif %}
+    {% endwith %}
+    
+    <!-- Add Department Form -->
+    <form method="POST" action="{{ url_for('department.add_department') }}" class="row g-2 mb-4 align-items-center">
+        <div class="col-md-3">
+            <input type="text" name="name" placeholder="Department Name (e.g. Pharmacy)" class="form-control" required>
+        </div>
+        <div class="col-md-2">
+            <input type="text" name="code" placeholder="Code (e.g. PHARM)" class="form-control" required>
+        </div>
+        <div class="col-md-4">
+            <input type="text" name="description" placeholder="Description (optional)" class="form-control">
+        </div>
+        <div class="col-md-3">
+            <button type="submit" class="btn btn-primary w-100">Add Department</button>
+        </div>
+    </form>
+
+    <!-- Departments Table -->
+    <table class="table table-striped table-bordered align-middle">
+        <thead class="table-light">
+            <tr>
+                <th>Code</th>
+                <th>Name</th>
+                <th>Description</th>
+                <th>Staff Count</th>
+                <th style="width: 25%;">Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for dept in departments %}
+            <tr>
+                <td><span class="badge bg-primary fs-6">{{ dept.code }}</span></td>
+                <td><strong>{{ dept.name }}</strong></td>
+                <td>{{ dept.description or '-' }}</td>
+                <td>{{ dept.members|length }} members</td>
+                <td>
+                    <!-- Edit Button -->
+                    <button 
+                        class="btn btn-warning btn-sm me-2" 
+                        data-bs-toggle="modal" 
+                        data-bs-target="#editDeptModal" 
+                        data-dept-id="{{ dept.id }}" 
+                        data-dept-name="{{ dept.name }}"
+                        data-dept-code="{{ dept.code }}"
+                        data-dept-desc="{{ dept.description or '' }}">
+                        Edit
+                    </button>
+                    
+                    <!-- Delete Button -->
+                    {% if dept.code != 'GEN' %}
+                    <form method="POST" action="{{ url_for('department.delete_department', dept_id=dept.id) }}" class="d-inline">
+                        <button 
+                            type="submit" 
+                            class="btn btn-danger btn-sm"
+                            onclick="return confirm('Are you sure you want to delete {{ dept.name }}? Members will be unassigned.');">
+                            Delete
+                        </button>
+                    </form>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<!-- Edit Department Modal -->
+<div class="modal fade" id="editDeptModal" tabindex="-1" aria-labelledby="editDeptModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="editDeptModalLabel">Edit Department</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="editDeptForm" method="POST">
+                    <input type="hidden" id="edit_dept_id" name="dept_id">
+                    
+                    <div class="mb-3">
+                        <label for="edit_dept_name" class="form-label">Department Name</label>
+                        <input type="text" id="edit_dept_name" name="name" class="form-control" required>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="edit_dept_code" class="form-label">Code</label>
+                        <input type="text" id="edit_dept_code" name="code" class="form-control" required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="edit_dept_desc" class="form-label">Description</label>
+                        <input type="text" id="edit_dept_desc" name="description" class="form-control">
+                    </div>
+                    
+                    <button type="submit" class="btn btn-primary">Save Changes</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    var editDeptModal = document.getElementById('editDeptModal');
+    var editDeptForm = document.getElementById('editDeptForm');
+
+    editDeptModal.addEventListener('show.bs.modal', function (event) {
+        var button = event.relatedTarget;
+        var deptId = button.getAttribute('data-dept-id');
+        var deptName = button.getAttribute('data-dept-name');
+        var deptCode = button.getAttribute('data-dept-code');
+        var deptDesc = button.getAttribute('data-dept-desc');
+
+        var modalTitle = editDeptModal.querySelector('.modal-title');
+        var deptIdInput = editDeptModal.querySelector('#edit_dept_id');
+        var deptNameInput = editDeptModal.querySelector('#edit_dept_name');
+        var deptCodeInput = editDeptModal.querySelector('#edit_dept_code');
+        var deptDescInput = editDeptModal.querySelector('#edit_dept_desc');
+
+        modalTitle.textContent = 'Edit Department: ' + deptName;
+        deptIdInput.value = deptId;
+        deptNameInput.value = deptName;
+        deptCodeInput.value = deptCode;
+        deptDescInput.value = deptDesc;
+    });
+
+    editDeptForm.onsubmit = function (event) {
+        event.preventDefault();
+        var deptId = document.getElementById('edit_dept_id').value;
+        var formData = new FormData(editDeptForm);
+
+        fetch('/edit_department/' + deptId, {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        }).then(response => response.json()).then(data => {
+            if (data.status === 'success') {
+                location.reload();
+            } else {
+                alert('Error updating department');
+            }
+        });
+    };
+});
+</script>
+{% endblock %}

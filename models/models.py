@@ -1,7 +1,18 @@
 from flask_sqlalchemy import SQLAlchemy
 from datetime import date
 from flask_login import UserMixin
+
 db = SQLAlchemy()
+
+class Department(db.Model):
+    __tablename__ = 'departments'
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), nullable=False, unique=True)
+    code = db.Column(db.String(20), nullable=False, unique=True)
+    description = db.Column(db.String(255), nullable=True)
+
+    def __repr__(self):
+        return f"<Department {self.name}>"
 
 class OrgDetails(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -11,8 +22,9 @@ class OrgDetails(db.Model):
 class Team(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(50), nullable=False)
-    is_admin = db.Column(db.Integer, default=0)  # sets if team member is incharge there no odd shifts
-
+    is_admin = db.Column(db.Integer, default=0)  # 0=Regular, 1=Team Leader, 2=Evening Exempt, 3=Night Exempt
+    department_id = db.Column(db.Integer, db.ForeignKey('departments.id'), nullable=True)
+    department = db.relationship('Department', backref=db.backref('members', cascade="all, delete-orphan"))
 
 class Leave(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -31,7 +43,7 @@ class Leave(db.Model):
         """Calculate the number of days remaining from today."""
         if self.end_date:
             remaining_days = (self.end_date - date.today()).days
-            return max(remaining_days, 0)  # Ensure it doesn't return negative values
+            return max(remaining_days, 0)
         return 0
 
     def __repr__(self):
@@ -44,6 +56,8 @@ class Shift(db.Model):
     end_time = db.Column(db.Time, nullable=False)
     max_members = db.Column(db.Integer, nullable=False)
     min_members = db.Column(db.Integer, nullable=False)
+    department_id = db.Column(db.Integer, db.ForeignKey('departments.id'), nullable=True)
+    department = db.relationship('Department', backref=db.backref('shifts', cascade="all, delete-orphan"))
 
     def __repr__(self):
         return f"<Shift {self.name}>"
@@ -52,12 +66,25 @@ class Rota(db.Model):
     __tablename__ = 'rotas'
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     rota_id = db.Column(db.Integer, nullable=False)
-    week_range = db.Column(db.String(50), nullable=False, unique=True)
+    department_id = db.Column(db.Integer, db.ForeignKey('departments.id'), nullable=True)
+    department = db.relationship('Department', backref=db.backref('rotas', cascade="all, delete-orphan"))
+    week_range = db.Column(db.String(50), nullable=False)
     shift_8_5 = db.Column(db.String(255), nullable=False)
     shift_5_8 = db.Column(db.String(255), nullable=False)
     shift_8_8 = db.Column(db.String(255), nullable=False)
     night_off = db.Column(db.String(255), nullable=True)
     date = db.Column(db.Date, default=date.today, nullable=False)
+
+class RotaAssignment(db.Model):
+    __tablename__ = 'rota_assignments'
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    rota_id = db.Column(db.Integer, nullable=False)
+    department_id = db.Column(db.Integer, db.ForeignKey('departments.id'), nullable=True)
+    member_id = db.Column(db.Integer, db.ForeignKey('team.id'), nullable=False)
+    shift_name = db.Column(db.String(50), nullable=False)  # 'morning', 'evening', 'night', 'night_off', 'on_leave'
+    date = db.Column(db.Date, nullable=False)
+    member = db.relationship('Team')
+    department = db.relationship('Department')
 
 class ShiftHistory(db.Model):
     __tablename__ = 'shift_history'
@@ -66,20 +93,23 @@ class ShiftHistory(db.Model):
     member_name = db.Column(db.String(255), nullable=False)
     shift_type = db.Column(db.String(50), nullable=False)
     week_range = db.Column(db.String(50), nullable=False)
+
 class MemberShiftState(db.Model):
     __tablename__ = 'member_shift_states'
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     rota_id = db.Column(db.Integer, nullable=False)
     member_name = db.Column(db.String(255), nullable=False)
-    shift_index = db.Column(db.Integer, nullable=False)    
+    shift_index = db.Column(db.Integer, nullable=False)
 
 class User(db.Model, UserMixin):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(20), unique=True, nullable=False)
     email = db.Column(db.String(120), unique=True, nullable=False)
     password = db.Column(db.String(60), nullable=False)
-    level = db.Column(db.Integer, default=0)  # New column with default value
-    #tempLog
+    level = db.Column(db.Integer, default=0)  # 0=Staff, 1=Dept Admin, 2=Super Admin
+    department_id = db.Column(db.Integer, db.ForeignKey('departments.id'), nullable=True)
+    department = db.relationship('Department', backref=db.backref('users'))
+
 class TemperatureLog(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     date = db.Column(db.Date, nullable=False, default=date.today)
@@ -87,4 +117,30 @@ class TemperatureLog(db.Model):
     recorded_temp = db.Column(db.Float, nullable=False)
     acceptable = db.Column(db.Boolean, nullable=False)
     initials = db.Column(db.String(3), nullable=False)
-    estimated_room = db.Column(db.Float, nullable=True)  # New column for estimated room temperature 
+    estimated_room = db.Column(db.Float, nullable=True)
+
+def init_db_departments():
+    """Ensure at least one default department exists and link unassigned records."""
+    default_dept = Department.query.filter_by(code='GEN').first()
+    if not default_dept:
+        default_dept = Department(name='General / Main', code='GEN', description='Default institution department')
+        db.session.add(default_dept)
+        db.session.commit()
+
+    # Assign unassigned members to default department
+    unassigned_members = Team.query.filter_by(department_id=None).all()
+    for m in unassigned_members:
+        m.department_id = default_dept.id
+
+    # Assign unassigned shifts to default department
+    unassigned_shifts = Shift.query.filter_by(department_id=None).all()
+    for s in unassigned_shifts:
+        s.department_id = default_dept.id
+
+    # Assign unassigned rotas to default department
+    unassigned_rotas = Rota.query.filter_by(department_id=None).all()
+    for r in unassigned_rotas:
+        r.department_id = default_dept.id
+
+    db.session.commit()
+    return default_dept 
