@@ -2,7 +2,7 @@ from flask import Blueprint, render_template, request, redirect, url_for, jsonif
 from flask_login import current_user, login_required
 from functools import wraps
 from werkzeug.security import generate_password_hash, check_password_hash
-from models.models import db, Team, User
+from models.models import db, Team, User, Department
 from blueprints.forms import RegistrationForm
 
 # Define the requires_level decorator

@@ -16,13 +16,25 @@ pdf_bp = Blueprint('pdf', __name__)
 def calculate_date_range(rotas):
     if not rotas:
         return None, None
-    try:
-        start_date = min(datetime.strptime(rota.week_range.split(' - ')[0], '%d/%m/%Y') for rota in rotas)
-        end_date = max(datetime.strptime(rota.week_range.split(' - ')[1], '%d/%m/%Y') for rota in rotas)
-        return start_date, end_date
-    except Exception as e:
-        logging.error(f"Error calculating date range: {e}")
-        return None, None
+    start_dates, end_dates = [], []
+    for rota in rotas:
+        if not rota.week_range:
+            continue
+        parts = rota.week_range.split(' - ') if ' - ' in rota.week_range else rota.week_range.split(' → ')
+        if len(parts) < 2:
+            continue
+        for fmt in ('%Y-%m-%d', '%d/%m/%Y', '%d-%m-%Y'):
+            try:
+                s_dt = datetime.strptime(parts[0].strip(), fmt)
+                e_dt = datetime.strptime(parts[1].strip(), fmt)
+                start_dates.append(s_dt)
+                end_dates.append(e_dt)
+                break
+            except ValueError:
+                continue
+    if start_dates and end_dates:
+        return min(start_dates), max(end_dates)
+    return None, None
 
 # PDF generation routes
 @pdf_bp.route('/export_pdf')

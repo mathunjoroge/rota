@@ -6,8 +6,26 @@
 <div class="container mt-4">
     <h1 class="mb-4">Members on Leave</h1>
 
-    <div class="mb-3">
-        <a href="{{ url_for('pdf.leave_rota_pdf') }}" class="btn btn-primary">Export as PDF</a>
+    <div class="card p-3 mb-4 bg-light">
+        <div class="row align-items-center">
+            <div class="col-md-6">
+                <form method="GET" action="{{ url_for('leave.on_leave') }}" class="d-flex align-items-center">
+                    <label for="deptFilterLeave" class="form-label me-2 mb-0 fw-bold">Filter Department:</label>
+                    <select id="deptFilterLeave" name="dept_id" class="form-select me-2" onchange="this.form.submit()">
+                        <option value="">All Departments</option>
+                        {% for d in departments %}
+                            <option value="{{ d.id }}" {% if selected_dept_id == d.id %}selected{% endif %}>{{ d.name }} ({{ d.code }})</option>
+                        {% endfor %}
+                    </select>
+                    {% if selected_dept_id %}
+                        <a href="{{ url_for('leave.on_leave') }}" class="btn btn-outline-secondary btn-sm">Clear</a>
+                    {% endif %}
+                </form>
+            </div>
+            <div class="col-md-6 text-end">
+                <a href="{{ url_for('pdf.leave_rota_pdf') }}" class="btn btn-primary">Export as PDF</a>
+            </div>
+        </div>
     </div>
     
     {% with messages = get_flashed_messages(with_categories=true) %}
@@ -24,9 +42,10 @@
     {% endwith %}
     
     {% if leaves_info %}
-    <table class="table table-bordered">
+    <table class="table table-bordered align-middle">
         <thead class="table-light">
             <tr>
+                <th>Department</th>
                 <th>Member Name</th>
                 <th>Leave Start Date</th>
                 <th>Leave End Date</th>
@@ -38,7 +57,14 @@
         <tbody>
             {% for leave_info in leaves_info %}
             <tr>
-                <td>**{{ leave_info.leave.member.name|title }}**</td>
+                <td>
+                    {% if leave_info.leave.member.department %}
+                        <span class="badge bg-info text-dark">{{ leave_info.leave.member.department.code }} - {{ leave_info.leave.member.department.name }}</span>
+                    {% else %}
+                        <span class="badge bg-light text-dark">Unassigned</span>
+                    {% endif %}
+                </td>
+                <td><strong>{{ leave_info.leave.member.name|title }}</strong></td>
                 <td>{{ leave_info.leave.start_date }}</td>
                 <td>{{ leave_info.leave.end_date }}</td>
                 <td>{{ leave_info.days_taken }}</td>

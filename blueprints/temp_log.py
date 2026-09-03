@@ -17,45 +17,54 @@ API_KEY = os.getenv('OPENWEATHERMAP_API_KEY')
 LOCATION = 'kombewa'
 
 def fetch_temperature():
-    """Fetch current temperature from the weather API."""
-    url = f'http://api.openweathermap.org/data/2.5/weather?lat=-0.10345&lon=34.51792&appid={API_KEY}&units=metric'
-    response = requests.get(url)
-    if response.status_code == 200:
-        data = response.json()
-        return data['main']['temp']
-    else:
-        current_app.logger.error(f"Failed to fetch temperature: {response.json().get('message', 'Unknown error')}")
+    """Fetch current temperature from the weather API with error handling."""
+    try:
+        url = f'http://api.openweathermap.org/data/2.5/weather?lat=-0.10345&lon=34.51792&appid={API_KEY}&units=metric'
+        response = requests.get(url, timeout=10)
+        if response.status_code == 200:
+            data = response.json()
+            return data['main']['temp']
+        else:
+            if current_app:
+                current_app.logger.error(f"Failed to fetch temperature: {response.status_code}")
+            return None
+    except Exception as e:
+        if current_app:
+            current_app.logger.error(f"Exception while fetching temperature: {str(e)}")
         return None
 
-def record_temperature(app, time_period):
-    """Record the fetched temperature into the database, adjusted for indoor conditions."""
+def record_temperature(app, time_period, manual_temp=None, initials='SYS'):
+    """Record the fetched or provided temperature into the database."""
     with app.app_context():
-        temp = fetch_temperature()
+        temp = manual_temp if manual_temp is not None else fetch_temperature()
         if temp is not None:
-            # Estimate indoor temperature by subtracting 5°C from the outdoor temperature
             estimated_room_temp = temp - 5
             date_today = datetime.now().date()
             acceptable = 15.0 <= estimated_room_temp <= 29.0
-            initials = 'SYS'
 
-            # Check if there's already an entry for the same date and time period
             existing_log = TemperatureLog.query.filter_by(date=date_today, time=time_period).first()
             if existing_log:
-                app.logger.warning(f"Temperature log already exists for {time_period} on {date_today}")
-                return
+                existing_log.recorded_temp = temp
+                existing_log.estimated_room = estimated_room_temp
+                existing_log.acceptable = acceptable
+                existing_log.initials = initials
+                db.session.commit()
+                app.logger.info(f"Updated temperature log for {time_period} on {date_today}")
+                return True
 
-            # Create and save temperature log
             temp_log = TemperatureLog(
                 date=date_today,
                 time=time_period,
                 recorded_temp=temp,
                 acceptable=acceptable,
                 initials=initials,
-                estimated_room=estimated_room_temp  # Save estimated room temperature
+                estimated_room=estimated_room_temp
             )
             db.session.add(temp_log)
             db.session.commit()
-            app.logger.info(f"Recorded temperature: {temp}°C at {time_period} (Estimated Room: {estimated_room_temp}°C)")
+            app.logger.info(f"Recorded temperature: {temp}°C at {time_period}")
+            return True
+        return False
 
 def schedule_tasks(app):
     """Schedule periodic temperature recording tasks."""
@@ -72,8 +81,8 @@ def schedule_tasks(app):
         id='record_temp_pm',
         func=lambda: record_temperature(app, 'PM'),
         trigger='cron',
-        hour=14,  # 2:00 PM EAT
-        minute=0  # Run at 2:00pm
+        hour=16,  # 2:00 PM EAT
+        minute=27 # Run at 2:00pm
     )
     scheduler.start()
 
@@ -178,4 +187,20 @@ def export_logs():
 
     # If GET request, just render the temp_log page
     return render_template('temp_log.html')
+
+@temp_bp.route('/record_now', methods=['POST'])
+@login_required
+def record_now():
+    from flask import flash, redirect, url_for
+    time_period = request.form.get('time_period', 'AM')
+    manual_temp = request.form.get('recorded_temp')
+    initials = request.form.get('initials', 'USR').upper()[:3]
+    temp_val = float(manual_temp) if manual_temp else None
+
+    success = record_temperature(current_app._get_current_object(), time_period, manual_temp=temp_val, initials=initials)
+    if success:
+        flash(f"Temperature logged successfully for {time_period}.", "success")
+    else:
+        flash("Could not fetch temperature automatically. Please specify a manual value.", "danger")
+    return redirect(url_for('temp_log.temp_log'))
 

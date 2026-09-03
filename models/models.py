@@ -119,8 +119,25 @@ class TemperatureLog(db.Model):
     initials = db.Column(db.String(3), nullable=False)
     estimated_room = db.Column(db.Float, nullable=True)
 
+from sqlalchemy import text
+
 def init_db_departments():
-    """Ensure at least one default department exists and link unassigned records."""
+    """Ensure at least one default department exists, perform lightweight schema migration, and link unassigned records."""
+    # Ensure new tables are created
+    db.create_all()
+
+    # Lightweight auto-migration for existing SQLite database files
+    tables_to_migrate = ['team', 'shift', 'rotas', 'user']
+    for table_name in tables_to_migrate:
+        try:
+            result = db.session.execute(text(f"PRAGMA table_info({table_name})")).fetchall()
+            col_names = [row[1] for row in result]
+            if col_names and 'department_id' not in col_names:
+                db.session.execute(text(f"ALTER TABLE {table_name} ADD COLUMN department_id INTEGER REFERENCES departments(id)"))
+                db.session.commit()
+        except Exception as e:
+            db.session.rollback()
+
     default_dept = Department.query.filter_by(code='GEN').first()
     if not default_dept:
         default_dept = Department(name='General / Main', code='GEN', description='Default institution department')
