@@ -384,6 +384,7 @@ def filter_eligible_members(members, week_start_date, week_end_date):
     Returns:
         list[Team]: A list of members who are not on leave and are eligible to work.
     """
+    from models.models import LeaveRequest
     eligible = []
     for member in members:
         on_leave = db.session.query(Leave).filter(
@@ -391,6 +392,16 @@ def filter_eligible_members(members, week_start_date, week_end_date):
             Leave.start_date <= week_end_date,
             Leave.end_date >= week_start_date
         ).first()
+
+        if not on_leave:
+            on_leave_req = db.session.query(LeaveRequest).filter(
+                LeaveRequest.member_id == member.id,
+                LeaveRequest.status == 'approved',
+                LeaveRequest.start_date <= week_end_date,
+                LeaveRequest.end_date >= week_start_date
+            ).first()
+            if on_leave_req:
+                on_leave = on_leave_req
 
         if not on_leave:
             eligible.append(member)

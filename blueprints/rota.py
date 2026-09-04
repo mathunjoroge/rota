@@ -7,6 +7,7 @@ from blueprints.forms import EditRotaForm
 from models.models import db, Rota, Team, ShiftHistory, MemberShiftState, Department
 from logic.rota_pulp import generate_rota_with_pulp
 from blueprints.members import requires_level
+from blueprints.notifications import notify_rota_published
 
 logging.basicConfig(level=logging.ERROR)
 
@@ -57,6 +58,11 @@ def generate_rota():
                     flash("Could not generate a fair rota. Please check constraints and try again.", 'error')
                     return redirect(url_for('rota.generate_rota', dept_id=dept_id if dept_id else None))
                 flash(f"Rota generated successfully with ID {rota_id} for {period_weeks} weeks.", 'success')
+                # Send email notifications with the rota PDF to all department members
+                try:
+                    notify_rota_published(rota_id)
+                except Exception as mail_err:
+                    logging.error(f"Rota email notification failed: {mail_err}")
                 return redirect(url_for('rota.rota_detail', rota_id=rota_id))
             except ValueError as e:
                 flash(f"Error generating rota: {str(e)}", 'error')

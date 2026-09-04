@@ -1,122 +1,640 @@
 {% extends 'base.html' %}
 
-{% block title %}Members on Leave{% endblock %}
+{% block title %}Enterprise Leave Management & Approvals{% endblock %}
 
 {% block content %}
+<style>
+  .leave-hero {
+    background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 50%, #311042 100%);
+    border-radius: 12px;
+    padding: 24px;
+    color: white;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+    margin-bottom: 24px;
+  }
+  .stat-card {
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 10px;
+    padding: 16px;
+    backdrop-filter: blur(10px);
+  }
+  .stat-card h3 {
+    font-size: 1.8rem;
+    font-weight: 700;
+    margin: 0;
+  }
+  .stat-card p {
+    margin: 0;
+    font-size: 0.85rem;
+    color: rgba(255,255,255,0.75);
+  }
+  .nav-pills-custom .nav-link {
+    color: #475569;
+    font-weight: 600;
+    border-radius: 8px;
+    padding: 10px 18px;
+    transition: all 0.2s ease;
+  }
+  .nav-pills-custom .nav-link.active {
+    background-color: #4f46e5;
+    color: white;
+    box-shadow: 0 4px 12px rgba(79, 70, 229, 0.4);
+  }
+  .badge-leave-annual { background-color: #0284c7; color: white; }
+  .badge-leave-sick { background-color: #dc2626; color: white; }
+  .badge-leave-emergency { background-color: #ea580c; color: white; }
+  .badge-leave-study { background-color: #9333ea; color: white; }
+  .badge-leave-maternity { background-color: #db2777; color: white; }
+
+  .timeline-bar-container {
+    background: #f1f5f9;
+    border-radius: 6px;
+    overflow: hidden;
+    height: 12px;
+    margin-top: 6px;
+  }
+  .timeline-bar-fill {
+    height: 100%;
+    border-radius: 6px;
+    background: linear-gradient(90deg, #6366f1, #a855f7);
+  }
+</style>
+
 <div class="container mt-4">
-    <h1 class="mb-4">Members on Leave</h1>
 
-    <div class="card p-3 mb-4 bg-light">
-        <div class="row align-items-center">
-            <div class="col-md-6">
-                <form method="GET" action="{{ url_for('leave.on_leave') }}" class="d-flex align-items-center">
-                    <label for="deptFilterLeave" class="form-label me-2 mb-0 fw-bold">Filter Department:</label>
-                    <select id="deptFilterLeave" name="dept_id" class="form-select me-2" onchange="this.form.submit()">
-                        <option value="">All Departments</option>
-                        {% for d in departments %}
-                            <option value="{{ d.id }}" {% if selected_dept_id == d.id %}selected{% endif %}>{{ d.name }} ({{ d.code }})</option>
-                        {% endfor %}
-                    </select>
-                    {% if selected_dept_id %}
-                        <a href="{{ url_for('leave.on_leave') }}" class="btn btn-outline-secondary btn-sm">Clear</a>
-                    {% endif %}
-                </form>
-            </div>
-            <div class="col-md-6 text-end">
-                <a href="{{ url_for('pdf.leave_rota_pdf') }}" class="btn btn-primary">Export as PDF</a>
-            </div>
-        </div>
+  <!-- HERO SECTION HEADER -->
+  <div class="leave-hero">
+    <div class="row align-items-center mb-3">
+      <div class="col-md-7">
+        <h2 class="fw-bold mb-1">🏖️ Enterprise Leave & Absence Portal</h2>
+        <p class="text-white-50 mb-0">Submit leave applications, track departmental absence timelines, and review pending approval workflows.</p>
+      </div>
+      <div class="col-md-5 text-md-end mt-3 mt-md-0">
+        <button class="btn btn-emerald me-2 shadow-sm" style="background-color: #10b981; color: white; font-weight:600;" data-bs-toggle="modal" data-bs-target="#applyLeaveModal">
+          ➕ Apply for Leave
+        </button>
+        <a href="{{ url_for('pdf.leave_rota_pdf') }}" class="btn btn-outline-light">
+          📄 Export PDF
+        </a>
+      </div>
     </div>
-    
-    {% with messages = get_flashed_messages(with_categories=true) %}
-      {% if messages %}
-        <div class="alert-container">
-          {% for category, message in messages %}
-            <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
-              {{ message }}
-              <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-            </div>
-          {% endfor %}
+
+    <!-- STAT SUMMARY CARDS -->
+    <div class="row g-3">
+      <div class="col-6 col-md-3">
+        <div class="stat-card">
+          <p>Active Staff On Leave</p>
+          <h3 class="text-info">{{ leaves_info|length }}</h3>
         </div>
-      {% endif %}
-    {% endwith %}
-    
-    {% if leaves_info %}
-    <table class="table table-bordered align-middle">
-        <thead class="table-light">
-            <tr>
-                <th>Department</th>
-                <th>Member Name</th>
-                <th>Leave Start Date</th>
-                <th>Leave End Date</th>
-                <th>Days Taken</th>
-                <th>Days Remaining</th>
-                <th>Actions</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for leave_info in leaves_info %}
-            <tr>
-                <td>
-                    {% if leave_info.leave.member.department %}
-                        <span class="badge bg-info text-dark">{{ leave_info.leave.member.department.code }} - {{ leave_info.leave.member.department.name }}</span>
-                    {% else %}
-                        <span class="badge bg-light text-dark">Unassigned</span>
-                    {% endif %}
-                </td>
-                <td><strong>{{ leave_info.leave.member.name|title }}</strong></td>
-                <td>{{ leave_info.leave.start_date }}</td>
-                <td>{{ leave_info.leave.end_date }}</td>
-                <td>{{ leave_info.days_taken }}</td>
-                <td>{{ leave_info.days_remaining }}</td>
-                <td>
-                    <button class="btn btn-warning btn-sm" data-bs-toggle="modal" 
-                            data-bs-target="#editLeaveModal{{ leave_info.leave.id }}">Edit</button>
+      </div>
+      <div class="col-6 col-md-3">
+        <div class="stat-card">
+          <p>Pending Applications</p>
+          <h3 class="{% if pending_requests|length > 0 %}text-warning{% else %}text-white-50{% endif %}">
+            {{ pending_requests|length }}
+          </h3>
+        </div>
+      </div>
+      <div class="col-6 col-md-3">
+        <div class="stat-card">
+          <p>Staff Monitored</p>
+          <h3 class="text-emerald text-success">{{ leave_balances|length }}</h3>
+        </div>
+      </div>
+      <div class="col-6 col-md-3">
+        <div class="stat-card">
+          <p>Departments Active</p>
+          <h3 class="text-purple text-light">{{ departments|length }}</h3>
+        </div>
+      </div>
+    </div>
+  </div>
 
-                    <form action="{{ url_for('leave.delete_leave', leave_id=leave_info.leave.id) }}" method="POST" style="display:inline-block;">
-                        <input type="hidden" name="_method" value="DELETE">
-                        <button type="submit" class="btn btn-danger btn-sm">Delete</button>
-                    </form>
-                </td>
-            </tr>
+  <!-- FLASH MESSAGES -->
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      <div class="alert-container mb-4">
+        {% for category, message in messages %}
+          <div class="alert alert-{{ category }} alert-dismissible fade show shadow-sm" role="alert">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+          </div>
+        {% endfor %}
+      </div>
+    {% endif %}
+  {% endwith %}
 
-            <div class="modal fade" id="editLeaveModal{{ leave_info.leave.id }}" tabindex="-1" 
-                 aria-labelledby="editLeaveModalLabel{{ leave_info.leave.id }}" aria-hidden="true">
-                <div class="modal-dialog">
-                    <div class="modal-content">
-                        <div class="modal-header">
-                            <h5 class="modal-title" id="editLeaveModalLabel{{ leave_info.leave.id }}">Edit Leave for **{{ leave_info.leave.member.name|title }}**</h5>
-                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                        </div>
-                        <form method="POST" action="{{ url_for('leave.edit_leave', leave_id=leave_info.leave.id) }}">
+  <!-- FILTER & NAVIGATION BAR -->
+  <div class="card shadow-sm border-0 mb-4">
+    <div class="card-body p-3 d-flex flex-wrap justify-content-between align-items-center gap-3">
+      
+      <!-- TAB NAVIGATION -->
+      <ul class="nav nav-pills nav-pills-custom" id="leaveTabs" role="tablist">
+        <li class="nav-item">
+          <button class="nav-link active" id="pending-tab" data-bs-toggle="pill" data-bs-target="#pending-panel" type="button" role="tab">
+            ⏳ Pending Requests 
+            {% if pending_requests|length > 0 %}
+              <span class="badge bg-danger rounded-pill ms-1">{{ pending_requests|length }}</span>
+            {% endif %}
+          </button>
+        </li>
+        <li class="nav-item">
+          <button class="nav-link" id="roster-tab" data-bs-toggle="pill" data-bs-target="#roster-panel" type="button" role="tab">
+            🏖️ Approved Roster &amp; Schedule
+          </button>
+        </li>
+        <li class="nav-item">
+          <button class="nav-link" id="balances-tab" data-bs-toggle="pill" data-bs-target="#balances-panel" type="button" role="tab">
+            📊 Leave Allowances &amp; Balances
+          </button>
+        </li>
+        <li class="nav-item">
+          <button class="nav-link" id="history-tab" data-bs-toggle="pill" data-bs-target="#history-panel" type="button" role="tab">
+            📜 Request History
+          </button>
+        </li>
+      </ul>
+
+      <!-- DEPARTMENT FILTER FORM -->
+      <form method="GET" action="{{ url_for('leave.on_leave') }}" class="d-flex align-items-center">
+        <select id="deptFilterLeave" name="dept_id" class="form-select form-select-sm me-2" onchange="this.form.submit()" style="min-width: 180px;">
+          <option value="">All Departments</option>
+          {% for d in departments %}
+            <option value="{{ d.id }}" {% if selected_dept_id == d.id %}selected{% endif %}>{{ d.name }} ({{ d.code }})</option>
+          {% endfor %}
+        </select>
+        {% if selected_dept_id %}
+          <a href="{{ url_for('leave.on_leave') }}" class="btn btn-outline-secondary btn-sm">Clear</a>
+        {% endif %}
+      </form>
+
+    </div>
+  </div>
+
+  <!-- TAB PANELS CONTENT -->
+  <div class="tab-content" id="leaveTabsContent">
+
+    <!-- PANEL 1: PENDING REQUESTS QUEUE -->
+    <div class="tab-pane fade show active" id="pending-panel" role="tabpanel">
+      <div class="card border-0 shadow-sm">
+        <div class="card-header bg-white py-3 border-bottom d-flex justify-content-between align-items-center">
+          <h5 class="fw-bold mb-0 text-dark">⏳ Pending Staff Leave Applications</h5>
+          <span class="text-muted small">Department leaders &amp; admins can review and approve or reject applications below.</span>
+        </div>
+        <div class="card-body p-0">
+          {% if pending_requests %}
+            <div class="table-responsive">
+              <table class="table table-hover align-middle mb-0">
+                <thead class="table-light">
+                  <tr>
+                    <th>Submitted</th>
+                    <th>Staff Member</th>
+                    <th>Department</th>
+                    <th>Leave Type</th>
+                    <th>Date Range</th>
+                    <th>Duration</th>
+                    <th>Reason / Notes</th>
+                    <th class="text-end">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for req in pending_requests %}
+                    <tr>
+                      <td class="text-muted small">{{ req.created_at.strftime('%Y-%m-%d %H:%M') if req.created_at else 'N/A' }}</td>
+                      <td><strong>{{ req.member.name|title }}</strong></td>
+                      <td>
+                        {% if req.member.department %}
+                          <span class="badge bg-secondary">{{ req.member.department.code }}</span>
+                        {% else %}
+                          <span class="badge bg-light text-dark">Gen</span>
+                        {% endif %}
+                      </td>
+                      <td>
+                        <span class="badge badge-leave-{{ req.leave_type.split()[0]|lower }} px-2 py-1">
+                          {{ req.leave_type }}
+                        </span>
+                      </td>
+                      <td><code>{{ req.start_date }}</code> to <code>{{ req.end_date }}</code></td>
+                      <td><span class="fw-bold text-indigo">{{ req.days_requested() }} days</span></td>
+                      <td class="text-wrap" style="max-width: 220px;">
+                        <small class="text-muted">{{ req.reason or 'No note attached' }}</small>
+                      </td>
+                      <td class="text-end">
+                        {% if current_user.level >= 1 %}
+                          <form action="{{ url_for('leave.approve_leave_request', req_id=req.id) }}" method="POST" class="d-inline">
+                            <button type="submit" class="btn btn-success btn-sm me-1" onclick="return confirm('Approve leave for {{ req.member.name }}? This will update rotas and notify staff.');">
+                              ✓ Approve
+                            </button>
+                          </form>
+                          <button class="btn btn-outline-danger btn-sm" data-bs-toggle="modal" data-bs-target="#rejectModal{{ req.id }}">
+                            ✗ Reject
+                          </button>
+
+                          <!-- REJECT REASON MODAL -->
+                          <div class="modal fade" id="rejectModal{{ req.id }}" tabindex="-1" aria-hidden="true">
+                            <div class="modal-dialog">
+                              <div class="modal-content text-start">
+                                <div class="modal-header bg-danger text-white">
+                                  <h5 class="modal-title">Reject Leave Application</h5>
+                                  <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                                </div>
+                                <form action="{{ url_for('leave.reject_leave_request', req_id=req.id) }}" method="POST">
+                                  <div class="modal-body">
+                                    <p>Rejecting leave for <strong>{{ req.member.name }}</strong> ({{ req.start_date }} to {{ req.end_date }}).</p>
+                                    <div class="mb-3">
+                                      <label class="form-label fw-bold">Reason for Rejection (Optional):</label>
+                                      <textarea name="review_notes" class="form-control" rows="3" placeholder="Provide context or explanation for staff member..."></textarea>
+                                    </div>
+                                  </div>
+                                  <div class="modal-footer">
+                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                                    <button type="submit" class="btn btn-danger">Confirm Rejection</button>
+                                  </div>
+                                </form>
+                              </div>
+                            </div>
+                          </div>
+                        {% else %}
+                          <span class="badge bg-light text-muted">Manager Review Required</span>
+                        {% endif %}
+                      </td>
+                    </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          {% else %}
+            <div class="text-center py-5">
+              <div class="display-6 text-muted mb-2">✅</div>
+              <h5 class="text-muted">No pending leave applications</h5>
+              <p class="text-muted small">All submitted leave applications have been processed.</p>
+            </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <!-- PANEL 2: APPROVED LEAVE ROSTER -->
+    <div class="tab-pane fade" id="roster-panel" role="tabpanel">
+      <div class="card border-0 shadow-sm mb-4">
+        <div class="card-header bg-white py-3 border-bottom d-flex justify-content-between align-items-center">
+          <h5 class="fw-bold mb-0 text-dark">🏖️ Active &amp; Upcoming Approved Leaves</h5>
+          <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#directLeaveModal">
+            + Quick Admin Entry
+          </button>
+        </div>
+        <div class="card-body p-0">
+          {% if leaves_info %}
+            <div class="table-responsive">
+              <table class="table table-bordered align-middle mb-0">
+                <thead class="table-light">
+                  <tr>
+                    <th>Department</th>
+                    <th>Member Name</th>
+                    <th>Leave Type</th>
+                    <th>Start Date</th>
+                    <th>End Date</th>
+                    <th>Days Taken</th>
+                    <th>Days Remaining</th>
+                    <th class="text-center">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for leave_info in leaves_info %}
+                    <tr>
+                      <td>
+                        {% if leave_info.leave.member.department %}
+                          <span class="badge bg-info text-dark">{{ leave_info.leave.member.department.code }} - {{ leave_info.leave.member.department.name }}</span>
+                        {% else %}
+                          <span class="badge bg-light text-dark">Unassigned</span>
+                        {% endif %}
+                      </td>
+                      <td><strong>{{ leave_info.leave.member.name|title }}</strong></td>
+                      <td>
+                        <span class="badge badge-leave-{{ (leave_info.leave.leave_type or 'Annual')|lower }} px-2 py-1">
+                          {{ leave_info.leave.leave_type or 'Annual Leave' }}
+                        </span>
+                      </td>
+                      <td><code>{{ leave_info.leave.start_date }}</code></td>
+                      <td><code>{{ leave_info.leave.end_date }}</code></td>
+                      <td><span class="badge bg-light text-dark fw-bold">{{ leave_info.days_taken }} days</span></td>
+                      <td>
+                        {% if leave_info.days_remaining > 0 %}
+                          <span class="badge bg-success">{{ leave_info.days_remaining }} days left</span>
+                        {% else %}
+                          <span class="badge bg-secondary">Completed</span>
+                        {% endif %}
+                      </td>
+                      <td class="text-center">
+                        {% if current_user.level >= 1 %}
+                          <button class="btn btn-warning btn-sm me-1" data-bs-toggle="modal" data-bs-target="#editLeaveModal{{ leave_info.leave.id }}">
+                            Edit
+                          </button>
+                          <form action="{{ url_for('leave.delete_leave', leave_id=leave_info.leave.id) }}" method="POST" style="display:inline-block;">
+                            <button type="submit" class="btn btn-danger btn-sm" onclick="return confirm('Delete leave record for {{ leave_info.leave.member.name }}?');">
+                              Delete
+                            </button>
+                          </form>
+                        {% else %}
+                          <span class="text-muted small">Read Only</span>
+                        {% endif %}
+                      </td>
+                    </tr>
+
+                    <!-- EDIT LEAVE MODAL -->
+                    <div class="modal fade" id="editLeaveModal{{ leave_info.leave.id }}" tabindex="-1" aria-hidden="true">
+                      <div class="modal-dialog">
+                        <div class="modal-content">
+                          <div class="modal-header bg-dark text-white">
+                            <h5 class="modal-title">Edit Leave for {{ leave_info.leave.member.name|title }}</h5>
+                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                          </div>
+                          <form method="POST" action="{{ url_for('leave.edit_leave', leave_id=leave_info.leave.id) }}">
                             <div class="modal-body">
-                                <div class="mb-3">
-                                    <label for="start_date_{{ leave_info.leave.id }}" class="form-label">Leave Start Date</label>
-                                    <input type="date" id="start_date_{{ leave_info.leave.id }}" name="start_date" 
-                                           class="form-control" value="{{ leave_info.leave.start_date }}" required>
-                                </div>
-                                <div class="mb-3">
-                                    <label for="end_date_{{ leave_info.leave.id }}" class="form-label">Leave End Date</label>
-                                    <input type="date" id="end_date_{{ leave_info.leave.id }}" name="end_date" 
-                                           class="form-control" value="{{ leave_info.leave.end_date }}" required>
-                                </div>
+                              <div class="mb-3">
+                                <label class="form-label fw-bold">Leave Type</label>
+                                <select name="leave_type" class="form-select">
+                                  <option value="Annual Leave" {% if leave_info.leave.leave_type == 'Annual Leave' %}selected{% endif %}>Annual Leave</option>
+                                  <option value="Sick Leave" {% if leave_info.leave.leave_type == 'Sick Leave' %}selected{% endif %}>Sick Leave</option>
+                                  <option value="Emergency Leave" {% if leave_info.leave.leave_type == 'Emergency Leave' %}selected{% endif %}>Emergency Leave</option>
+                                  <option value="Study Leave" {% if leave_info.leave.leave_type == 'Study Leave' %}selected{% endif %}>Study Leave</option>
+                                  <option value="Maternity Leave" {% if leave_info.leave.leave_type == 'Maternity Leave' %}selected{% endif %}>Maternity/Paternity Leave</option>
+                                </select>
+                              </div>
+                              <div class="mb-3">
+                                <label class="form-label fw-bold">Start Date</label>
+                                <input type="date" name="start_date" class="form-control" value="{{ leave_info.leave.start_date }}" required>
+                              </div>
+                              <div class="mb-3">
+                                <label class="form-label fw-bold">End Date</label>
+                                <input type="date" name="end_date" class="form-control" value="{{ leave_info.leave.end_date }}" required>
+                              </div>
                             </div>
                             <div class="modal-footer">
-                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                                <button type="submit" class="btn btn-primary">Save Changes</button>
+                              <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                              <button type="submit" class="btn btn-primary">Save Changes</button>
                             </div>
-                        </form>
+                          </form>
+                        </div>
+                      </div>
                     </div>
-                </div>
+                  {% endfor %}
+                </tbody>
+              </table>
             </div>
-            {% endfor %}
-        </tbody>
-    </table>
-    {% else %}
-    <div class="alert alert-info" role="alert">
-        No members currently on leave.
+          {% else %}
+            <div class="alert alert-info m-3" role="alert">
+              No staff members are currently recorded on leave.
+            </div>
+          {% endif %}
+        </div>
+      </div>
     </div>
-    {% endif %}
+
+    <!-- PANEL 3: LEAVE ALLOWANCES & BALANCES -->
+    <div class="tab-pane fade" id="balances-panel" role="tabpanel">
+      <div class="card border-0 shadow-sm mb-4">
+        <div class="card-header bg-white py-3 border-bottom d-flex justify-content-between align-items-center">
+          <h5 class="fw-bold mb-0 text-dark">📊 Annual Leave Entitlement Tracker (Current Calendar Year)</h5>
+          <span class="text-muted small">Default Entitlement: 21 working days per annum</span>
+        </div>
+        <div class="card-body">
+          <div class="row g-3">
+            {% for b in leave_balances %}
+              <div class="col-md-6 col-lg-4">
+                <div class="card border border-light-subtle shadow-sm h-100">
+                  <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                      <div>
+                        <h6 class="fw-bold mb-0">{{ b.member.name|title }}</h6>
+                        <small class="text-muted">{{ b.member.department.name if b.member.department else 'General' }}</small>
+                      </div>
+                      <span class="badge bg-dark">{{ b.remaining }} days left</span>
+                    </div>
+
+                    <div class="d-flex justify-content-between small text-muted mb-1 mt-3">
+                      <span>Used: <strong>{{ b.used }} days</strong></span>
+                      <span>Quota: <strong>{{ b.allowance }} days</strong></span>
+                    </div>
+
+                    <div class="progress" style="height: 10px; border-radius: 6px;">
+                      <div class="progress-bar {% if b.pct_used > 85 %}bg-danger{% elif b.pct_used > 60 %}bg-warning{% else %}bg-success{% endif %}" 
+                           role="progressbar" 
+                           style="width: {{ b.pct_used }}%;" 
+                           aria-valuenow="{{ b.pct_used }}" 
+                           aria-valuemin="0" 
+                           aria-valuemax="100">
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PANEL 4: REQUEST HISTORY -->
+    <div class="tab-pane fade" id="history-panel" role="tabpanel">
+      <div class="card border-0 shadow-sm mb-4">
+        <div class="card-header bg-white py-3 border-bottom">
+          <h5 class="fw-bold mb-0 text-dark">📜 Leave Application Audit Log &amp; History</h5>
+        </div>
+        <div class="card-body p-0">
+          {% if all_requests %}
+            <div class="table-responsive">
+              <table class="table table-sm table-striped align-middle mb-0">
+                <thead class="table-light">
+                  <tr>
+                    <th>ID</th>
+                    <th>Staff Member</th>
+                    <th>Type</th>
+                    <th>Dates</th>
+                    <th>Days</th>
+                    <th>Status</th>
+                    <th>Reason / Manager Notes</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for r in all_requests %}
+                    <tr>
+                      <td>#{{ r.id }}</td>
+                      <td><strong>{{ r.member.name|title }}</strong></td>
+                      <td><small class="fw-bold">{{ r.leave_type }}</small></td>
+                      <td>{{ r.start_date }} → {{ r.end_date }}</td>
+                      <td>{{ r.days_requested() }}</td>
+                      <td>
+                        {% if r.status == 'approved' %}
+                          <span class="badge bg-success">Approved</span>
+                        {% elif r.status == 'rejected' %}
+                          <span class="badge bg-danger">Rejected</span>
+                        {% else %}
+                          <span class="badge bg-warning text-dark">Pending</span>
+                        {% endif %}
+                      </td>
+                      <td>
+                        <small class="text-muted">
+                          {{ r.reason or 'N/A' }} 
+                          {% if r.review_notes %}(Reviewer Notes: {{ r.review_notes }}){% endif %}
+                        </small>
+                      </td>
+                    </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          {% else %}
+            <div class="p-4 text-center text-muted">No request history recorded yet.</div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+  </div>
 </div>
+
+
+<!-- APPLY FOR LEAVE MODAL -->
+<div class="modal fade" id="applyLeaveModal" tabindex="-1" aria-labelledby="applyLeaveModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header bg-indigo text-white" style="background: linear-gradient(135deg, #1e1b4b, #4338ca);">
+        <h5 class="modal-title fw-bold" id="applyLeaveModalLabel">🏖️ Submit Leave Application</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <form action="{{ url_for('leave.apply_leave') }}" method="POST" id="leaveApplicationForm">
+        <div class="modal-body p-4">
+
+          <div class="mb-3">
+            <label for="app_member_id" class="form-label fw-bold">Select Staff Member</label>
+            <select name="member_id" id="app_member_id" class="form-select" required>
+              <option value="">-- Choose Staff Member --</option>
+              {% for m in all_members %}
+                <option value="{{ m.id }}">{{ m.name|title }} ({% if m.department %}{{ m.department.code }}{% else %}Gen{% endif %})</option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <div class="mb-3">
+            <label for="app_leave_type" class="form-label fw-bold">Leave Type</label>
+            <select name="leave_type" id="app_leave_type" class="form-select" required>
+              <option value="Annual Leave">Annual Leave</option>
+              <option value="Sick Leave">Sick Leave</option>
+              <option value="Emergency Leave">Emergency Leave</option>
+              <option value="Study Leave">Study Leave</option>
+              <option value="Maternity Leave">Maternity / Paternity Leave</option>
+            </select>
+          </div>
+
+          <div class="row">
+            <div class="col-md-6 mb-3">
+              <label for="app_start_date" class="form-label fw-bold">Start Date</label>
+              <input type="date" name="start_date" id="app_start_date" class="form-control" required onchange="calculateWorkingDays()">
+            </div>
+            <div class="col-md-6 mb-3">
+              <label for="app_end_date" class="form-label fw-bold">End Date</label>
+              <input type="date" name="end_date" id="app_end_date" class="form-control" required onchange="calculateWorkingDays()">
+            </div>
+          </div>
+
+          <div class="alert alert-info py-2 px-3 mb-3 d-none" id="durationAlert">
+            ⏱️ Total Requested Duration: <strong id="workingDaysCount">0</strong> working days.
+          </div>
+
+          <div class="mb-3">
+            <label for="app_reason" class="form-label fw-bold">Reason / Purpose of Leave</label>
+            <textarea name="reason" id="app_reason" class="form-control" rows="3" placeholder="Brief details regarding your leave request..."></textarea>
+          </div>
+
+        </div>
+        <div class="modal-footer bg-light">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-emerald" style="background-color: #10b981; color: white; font-weight:600;">
+            Submit Application
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+
+<!-- DIRECT LEAVE MODAL (ADMIN) -->
+<div class="modal fade" id="directLeaveModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header bg-dark text-white">
+        <h5 class="modal-title">Admin Quick Direct Leave Entry</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <form action="{{ url_for('members.manage_members') }}" method="POST" id="directLeaveForm">
+        <div class="modal-body">
+          <p class="small text-muted">Directly create an approved leave entry without waiting for approval workflow.</p>
+          <div class="mb-3">
+            <label class="form-label fw-bold">Select Staff</label>
+            <select name="member_id" class="form-select" required id="adminDirectMemberSelect">
+              {% for m in all_members %}
+                <option value="{{ m.id }}">{{ m.name|title }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-bold">Start Date</label>
+            <input type="date" name="start_date" class="form-control" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-bold">End Date</label>
+            <input type="date" name="end_date" class="form-control" required>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+          <button type="button" class="btn btn-primary" onclick="submitDirectLeave()">Save Direct Leave</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+  function calculateWorkingDays() {
+    const sVal = document.getElementById('app_start_date').value;
+    const eVal = document.getElementById('app_end_date').value;
+    const alertBox = document.getElementById('durationAlert');
+    const countSpan = document.getElementById('workingDaysCount');
+
+    if (sVal && eVal) {
+      const start = new Date(sVal);
+      const end = new Date(eVal);
+
+      if (start <= end) {
+        let count = 0;
+        let cur = new Date(start);
+        while (cur <= end) {
+          const dayOfWeek = cur.getDay();
+          if (dayOfWeek !== 0 && dayOfWeek !== 6) { // Exclude Sunday (0) and Saturday (6)
+            count++;
+          }
+          cur.setDate(cur.getDate() + 1);
+        }
+        countSpan.textContent = count;
+        alertBox.classList.remove('d-none');
+        return;
+      }
+    }
+    alertBox.classList.add('d-none');
+  }
+
+  function submitDirectLeave() {
+    const mId = document.getElementById('adminDirectMemberSelect').value;
+    const form = document.getElementById('directLeaveForm');
+    if (mId) {
+      form.action = "/save_leave/" + mId;
+      form.submit();
+    }
+  }
+</script>
 
 {% endblock %}

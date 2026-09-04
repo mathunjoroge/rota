@@ -1,6 +1,6 @@
 from flask import Blueprint, Response, abort, url_for
 from flask_login import login_required, current_user
-from models.models import db, User, RotaAssignment, Team
+from models.models import db, User, RotaAssignment, Team, Rota
 from datetime import datetime, timedelta
 import uuid
 
@@ -46,40 +46,63 @@ def ical_feed(token):
     if not user:
         abort(404)
 
-    # Find Team member matching this user (by name prefix or department)
-    members = Team.query.filter_by(department_id=user.department_id).all()
-    # Match by first name of username
-    first_name = user.username.split('_')[0].lower()
-    member = next((m for m in members if first_name in m.name.lower()), None)
+    # Find matching Team member
+    all_members = Team.query.all()
+    u_name = user.username.lower()
+    member = next((m for m in all_members if u_name in m.name.lower() or any(part in m.name.lower() for part in u_name.split('_'))), None)
+    member_name = member.name if member else user.username
 
     cal = Calendar()
     cal.add('prodid', '-//Magic Rota//Hospital Shift Calendar//EN')
     cal.add('version', '2.0')
     cal.add('calscale', 'GREGORIAN')
-    cal.add('x-wr-calname', f'Shifts – {user.username.title()}')
+    cal.add('x-wr-calname', f'Shifts – {member_name.title()}')
     cal.add('x-wr-timezone', 'Africa/Nairobi')
 
+    # Query all rotas
+    rotas = Rota.query.order_by(Rota.date.asc()).all()
+
+    for idx, r in enumerate(rotas):
+        shifts_found = []
+        if member_name in (r.shift_8_5 or ''):
+            shifts_found.append(('Morning Shift (8 AM - 5 PM)', 8, 0, 17, 0))
+        if member_name in (r.shift_5_8 or ''):
+            shifts_found.append(('Evening Shift (5 PM - 8 PM)', 17, 0, 20, 0))
+        if member_name in (r.shift_8_8 or ''):
+            shifts_found.append(('Night Shift (8 PM - 8 AM)', 20, 0, 8, 0))
+        if member_name in (r.night_off or ''):
+            shifts_found.append(('Night Off 💤', 8, 0, 17, 0))
+
+        shift_date = r.date if r.date else datetime.now().date()
+        for title, sh, sm, eh, em in shifts_found:
+            start_dt = datetime(shift_date.year, shift_date.month, shift_date.day, sh, sm)
+            if 'Night Shift' in title:
+                next_day = shift_date + timedelta(days=1)
+                end_dt = datetime(next_day.year, next_day.month, next_day.day, eh, em)
+            else:
+                end_dt = datetime(shift_date.year, shift_date.month, shift_date.day, eh, em)
+
+            event = Event()
+            event.add('summary', f'{title} — {member_name.title()}')
+            event.add('dtstart', start_dt)
+            event.add('dtend', end_dt)
+            event.add('description', f'Week: {r.week_range}\nDepartment: {r.department.name if r.department else "General"}')
+            event.add('uid', f'rota-{r.id}-{idx}-{token[:8]}@magicrota')
+            cal.add_component(event)
+
+    # Query approved leaves for staff member
     if member:
-        assignments = RotaAssignment.query.filter_by(member_id=member.id).order_by(RotaAssignment.date).all()
-    else:
-        assignments = []
-
-    for a in assignments:
-        label, sh, sm, eh, em = SHIFT_LABELS.get(a.shift_name, ('Shift', 8, 0, 17, 0))
-        start_dt = datetime(a.date.year, a.date.month, a.date.day, sh, sm)
-        if a.shift_name == 'night':
-            next_day = a.date + timedelta(days=1)
-            end_dt = datetime(next_day.year, next_day.month, next_day.day, eh, em)
-        else:
-            end_dt = datetime(a.date.year, a.date.month, a.date.day, eh, em)
-
-        event = Event()
-        event.add('summary', f'{label} — {member.name if member else user.username}')
-        event.add('dtstart', start_dt)
-        event.add('dtend', end_dt)
-        event.add('description', f'Shift type: {a.shift_name}\nDepartment: {user.department.name if user.department else ""}')
-        event.add('uid', f'{a.id}-{token[:8]}@magicrota')
-        cal.add_component(event)
+        from models.models import Leave
+        leaves = Leave.query.filter_by(member_id=member.id).all()
+        for idx, l in enumerate(leaves):
+            l_type = getattr(l, 'leave_type', 'Annual Leave') or 'Annual Leave'
+            event = Event()
+            event.add('summary', f'🏖️ On Leave ({l_type}) — {member_name.title()}')
+            event.add('dtstart', l.start_date)
+            event.add('dtend', l.end_date + timedelta(days=1))
+            event.add('description', f'Leave Type: {l_type}\nReason: {l.reason or "N/A"}')
+            event.add('uid', f'leave-{l.id}-{token[:8]}@magicrota')
+            cal.add_component(event)
 
     return Response(
         cal.to_ical(),

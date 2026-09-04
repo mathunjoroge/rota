@@ -37,15 +37,33 @@ def manage_members():
 
 @members_bp.route('/add_member', methods=['GET', 'POST'])
 @login_required
-@requires_level(1)  # Only users with level 1 (Admin) can access this route
+@requires_level(1)
 def add_member():
     if request.method == 'POST':
         name = request.form.get('name')
         is_admin = request.form.get('is_admin', 0)
         dept_id = request.form.get('department_id', type=int)
+        role_title = request.form.get('role_title', 'Staff Member').strip() or 'Staff Member'
+        phone = request.form.get('phone', '').strip()
+        email = request.form.get('email', '').strip()
+        can_float = 'can_float' in request.form
+        exempt_evening = 'exempt_evening' in request.form
+        exempt_night = 'exempt_night' in request.form
+        exempt_weekend = 'exempt_weekend' in request.form
 
         if name:
-            member = Team(name=name, is_admin=int(is_admin), department_id=dept_id)
+            member = Team(
+                name=name,
+                is_admin=int(is_admin),
+                department_id=dept_id,
+                role_title=role_title,
+                phone=phone,
+                email=email,
+                can_float=can_float,
+                exempt_evening=exempt_evening,
+                exempt_night=exempt_night,
+                exempt_weekend=exempt_weekend
+            )
             db.session.add(member)
             db.session.commit()
             flash('Member added successfully!', 'success')
@@ -57,7 +75,7 @@ def add_member():
 
 @members_bp.route('/edit_member/<int:member_id>', methods=['GET', 'POST'])
 @login_required
-@requires_level(1)  # Only users with level 1 (Admin) can access this route
+@requires_level(1)
 def edit_member(member_id):
     member = Team.query.get_or_404(member_id)
     if request.method == 'POST':
@@ -70,6 +88,17 @@ def edit_member(member_id):
             member.is_admin = int(new_is_admin)
             if dept_id:
                 member.department_id = dept_id
+            if 'role_title' in request.form:
+                member.role_title = request.form['role_title'].strip() or 'Staff Member'
+            if 'phone' in request.form:
+                member.phone = request.form['phone'].strip()
+            if 'email' in request.form:
+                member.email = request.form['email'].strip()
+            member.can_float = 'can_float' in request.form
+            member.exempt_evening = 'exempt_evening' in request.form
+            member.exempt_night = 'exempt_night' in request.form
+            member.exempt_weekend = 'exempt_weekend' in request.form
+
             db.session.commit()
             if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
                 return jsonify({'status': 'success'})

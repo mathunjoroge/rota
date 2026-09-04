@@ -23,18 +23,25 @@ class OrgDetails(db.Model):
 class Team(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(50), nullable=False)
-    is_admin = db.Column(db.Integer, default=0)  # 0=Regular, 1=Team Leader, 2=Evening Exempt, 3=Night Exempt
+    is_admin = db.Column(db.Integer, default=0)  # 0=Regular, 1=Team Leader/Admin (Morning Only), 2=Senior (Evening & Morning), 3=Night Exempt
+    role_title = db.Column(db.String(80), default='Staff Member') # e.g. Consultant, Charge Nurse, Medical Officer
     department_id = db.Column(db.Integer, db.ForeignKey('departments.id'), nullable=True)
     department = db.relationship('Department', backref=db.backref('members', cascade="all, delete-orphan"))
     phone = db.Column(db.String(20), nullable=True)       # For SMS alerts
     can_float = db.Column(db.Boolean, default=False)      # Float pool eligibility
     email = db.Column(db.String(120), nullable=True)      # For email shift alerts
+    annual_leave_allowance = db.Column(db.Integer, default=21) # Annual leave days quota
+    exempt_evening = db.Column(db.Boolean, default=False) # Exclude from evening shifts
+    exempt_night = db.Column(db.Boolean, default=False)   # Exclude from night shifts
+    exempt_weekend = db.Column(db.Boolean, default=False) # Exclude from weekend shifts
 
 class Leave(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     member_id = db.Column(db.Integer, db.ForeignKey('team.id'), nullable=False)
     start_date = db.Column(db.Date, nullable=False)
     end_date = db.Column(db.Date, nullable=False)
+    leave_type = db.Column(db.String(50), default='Annual Leave')
+    reason = db.Column(db.String(255), nullable=True)
     member = db.relationship('Team', backref=db.backref('leaves', cascade="all, delete"))
 
     def days_taken(self):
@@ -50,6 +57,29 @@ class Leave(db.Model):
 
     def __repr__(self):
         return f"<Leave {self.id} - Member {self.member_id}: {self.start_date} to {self.end_date}>"
+
+class LeaveRequest(db.Model):
+    """Staff leave application request workflow."""
+    __tablename__ = 'leave_requests'
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    member_id = db.Column(db.Integer, db.ForeignKey('team.id'), nullable=False)
+    leave_type = db.Column(db.String(50), default='Annual Leave', nullable=False)
+    start_date = db.Column(db.Date, nullable=False)
+    end_date = db.Column(db.Date, nullable=False)
+    reason = db.Column(db.String(255), nullable=True)
+    status = db.Column(db.String(20), default='pending', nullable=False)  # pending/approved/rejected
+    reviewed_by_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+    review_notes = db.Column(db.String(255), nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    resolved_at = db.Column(db.DateTime, nullable=True)
+
+    member = db.relationship('Team', backref=db.backref('leave_requests', cascade="all, delete"))
+    reviewer = db.relationship('User', foreign_keys=[reviewed_by_id])
+
+    def days_requested(self):
+        if self.start_date and self.end_date:
+            return (self.end_date - self.start_date).days + 1
+        return 0
 
 class Shift(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -198,10 +228,19 @@ def init_db_departments():
     # Column auto-migration for existing SQLite databases
     migrations = {
         'team': [
-            ('department_id', 'INTEGER REFERENCES departments(id)'),
-            ('phone',         'TEXT'),
-            ('can_float',     'INTEGER DEFAULT 0'),
-            ('email',         'TEXT'),
+            ('department_id',          'INTEGER REFERENCES departments(id)'),
+            ('phone',                  'TEXT'),
+            ('can_float',              'INTEGER DEFAULT 0'),
+            ('email',                  'TEXT'),
+            ('annual_leave_allowance', 'INTEGER DEFAULT 21'),
+            ('role_title',             "TEXT DEFAULT 'Staff Member'"),
+            ('exempt_evening',         'INTEGER DEFAULT 0'),
+            ('exempt_night',           'INTEGER DEFAULT 0'),
+            ('exempt_weekend',         'INTEGER DEFAULT 0'),
+        ],
+        'leave': [
+            ('leave_type', "TEXT DEFAULT 'Annual Leave'"),
+            ('reason',     'TEXT'),
         ],
         'shift': [('department_id', 'INTEGER REFERENCES departments(id)')],
         'rotas': [('department_id', 'INTEGER REFERENCES departments(id)')],

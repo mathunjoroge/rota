@@ -13,9 +13,22 @@ def log_audit(action, entity_type, entity_id=None, description=None, old_value=N
     Call this from any blueprint that modifies data.
     """
     try:
-        user_id = current_user.id if current_user.is_authenticated else None
-        username = current_user.username if current_user.is_authenticated else 'system'
-        ip = request.remote_addr if request else None
+        user_id = None
+        username = 'system'
+        try:
+            if current_user and hasattr(current_user, 'is_authenticated') and current_user.is_authenticated:
+                user_id = getattr(current_user, 'id', None)
+                username = getattr(current_user, 'username', 'system')
+        except Exception:
+            pass
+
+        ip = None
+        try:
+            if request:
+                ip = getattr(request, 'remote_addr', None)
+        except Exception:
+            pass
+
         entry = AuditLog(
             user_id=user_id,
             username=username,
